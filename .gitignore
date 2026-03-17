@@ -1,0 +1,50 @@
+# ── Secrets — NEVER upload these ──────────────────────────────────────
+.env
+application-local.properties
+
+# ── Maven build output ─────────────────────────────────────────────────
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ── IDE files ──────────────────────────────────────────────────────────
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.code-workspace
+.project
+.classpath
+.settings/
+*.launch
+
+# ── OS files ───────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ───────────────────────────────────────────────────────────────
+*.log
+logs/
+spring.log
+
+# ── Compiled class files ───────────────────────────────────────────────
+*.class
+
+# ── Package files ──────────────────────────────────────────────────────
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# ── Vaadin ─────────────────────────────────────────────────────────────
+node_modules/
+package-lock.json
+pnpm-lock.yaml
+.pnpm-store/
+frontend/generated/
