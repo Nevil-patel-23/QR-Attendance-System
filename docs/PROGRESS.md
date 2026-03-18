@@ -6,11 +6,12 @@
 
 ## Current Status
 
-**Phase: Step 2 — Database Migrations (complete, ready for Step 3)**
+**Phase: Step 3 — Login Vertical Slice (complete, ready for next vertical slice)**
 
 - Login is PRN + password for ALL users including Admin
-- `User.java` is clean and verified correct
 - V3 migration (`V3__remove_username.sql`) will clean `username` column from Neon
+- Login backend (JWT, Repo, Service, DTOs, Exceptions) 100% complete
+- Vaadin Login UI + Role-based Dashboards (Admin, Teacher, Student) 100% complete
 
 ---
 
@@ -60,6 +61,21 @@
 
 ---
 
+### Login Vertical Slice (Backend & UI) ✅
+- [x] UserRepository with PRN queries
+- [x] LoginRequest, AuthResponse, ErrorResponse DTOs
+- [x] GlobalExceptionHandler and custom exceptions
+- [x] JWT utility, filter, and stateless SecurityConfig
+- [x] AuthService for PRN/BCrypt verification
+- [x] AuthController exposing POST /api/v1/auth/login
+- [x] SecurityConfig updated to permit Vaadin UI routes
+- [x] `ui/views/shared/LoginView.java` built (PRN auth + role redirect)
+- [x] `ui/views/admin/AdminDashboardView.java` placeholder
+- [x] `ui/views/teacher/TeacherDashboardView.java` placeholder
+- [x] `ui/views/student/StudentDashboardView.java` placeholder
+
+---
+
 ## In Progress 🔄
 
 *Nothing in progress — session ended*
@@ -103,6 +119,8 @@
 | 16 Mar 2025 | Step 1 completed — 6 enums + 14 entity classes across all 5 domains |
 | 16 Mar 2025 | Step 2 completed — V1__create_tables.sql with 14 tables, constraints, indexes; all tables live in Neon |
 | 17 Mar 2025 | PRN migration — login switched from email to PRN-based; V2__update_prn_login.sql created; User/Student/Teacher models + all docs updated |
+| 18 Mar 2025 | Login Vertical Slice (Backend) completed — 13 files covering UserRepository, JWT security, Auth service, and Login API endpoint |
+| 18 Mar 2025 | Login Vaadin UI completed — SecurityConfig Vaadin bypass, LoginView with JWT storage, and 3 Dashboard placeholders completed |
 
 ---
 
