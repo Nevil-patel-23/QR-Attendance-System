@@ -80,11 +80,11 @@ public class LoginView extends VerticalLayout {
                 // Redirect based on role
                 String role = response.getRole();
                 if ("ADMIN".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("admin/dashboard");
+                    UI.getCurrent().navigate("admin");
                 } else if ("TEACHER".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("teacher/dashboard");
+                    UI.getCurrent().navigate("teacher");
                 } else if ("STUDENT".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("student/dashboard");
+                    UI.getCurrent().navigate("student");
                 } else {
                     errorMessage.setText("Unknown role assigned.");
                     errorMessage.setVisible(true);

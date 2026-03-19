@@ -48,3 +48,4 @@ package-lock.json
 pnpm-lock.yaml
 .pnpm-store/
 frontend/generated/
+src/main/frontend/

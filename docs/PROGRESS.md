@@ -6,12 +6,12 @@
 
 ## Current Status
 
-**Phase: Step 3 — Login Vertical Slice (complete, ready for next vertical slice)**
+**Phase: Vertical Slices 2 & 3 — Faculty, Course, and Subject Management (complete, ready for next vertical slice)**
 
-- Login is PRN + password for ALL users including Admin
-- V3 migration (`V3__remove_username.sql`) will clean `username` column from Neon
-- Login backend (JWT, Repo, Service, DTOs, Exceptions) 100% complete
-- Vaadin Login UI + Role-based Dashboards (Admin, Teacher, Student) 100% complete
+- AdminLayout implemented with breadcrumb navigation (no sidebar)
+- Faculty Management CRUD fully functional
+- Course Management CRUD fully functional with automatic semester generation and duration validation
+- Subject Management CRUD fully functional with cascading dropdowns and subject code auto-generation
 
 ---
 
@@ -74,6 +74,23 @@
 - [x] `ui/views/teacher/TeacherDashboardView.java` placeholder
 - [x] `ui/views/student/StudentDashboardView.java` placeholder
 
+### Vertical Slice 2 — Faculty Management ✅
+- [x] FacultyRepository & DTOs
+- [x] AdminService methods for Faculty CRUD
+- [x] `FacultyManagementView` UI (CRUD + Validation)
+- [x] `AdminDashboardView` updated with actual stat counts 
+
+### Vertical Slice 3 — Course & Subject Management ✅
+- [x] CourseRepository, SemesterRepository, SubjectRepository & DTOs
+- [x] AdminService methods for Course & Subject CRUD
+- [x] Course duration update validation logic (prevent shrinking if subjects exist)
+- [x] Automatic Semester generation based on Course duration parameters
+- [x] Subject code auto-generation logic implemented (e.g., Prefix: MCA23, editable number)
+- [x] `CourseManagementView` UI with nested grids for Semesters
+- [x] `SubjectManagementView` UI with cascading dropdowns
+- [x] Service layer `@Transactional` boundaries updated to resolve `LazyInitializationException`
+- [x] `AdminLayout` created as a shared wrapper (horizontal top bar with breadcrumb path, eliminating sidebar)
+
 ---
 
 ## In Progress 🔄
@@ -121,6 +138,8 @@
 | 17 Mar 2025 | PRN migration — login switched from email to PRN-based; V2__update_prn_login.sql created; User/Student/Teacher models + all docs updated |
 | 18 Mar 2025 | Login Vertical Slice (Backend) completed — 13 files covering UserRepository, JWT security, Auth service, and Login API endpoint |
 | 18 Mar 2025 | Login Vaadin UI completed — SecurityConfig Vaadin bypass, LoginView with JWT storage, and 3 Dashboard placeholders completed |
+| 18 Mar 2025 | Faculty Management Vertical Slice completed — Faculty CRUD, AdminService logic, and stats integrated on Admin Dashboard |
+| 18 Mar 2025 | Course & Subject Management Vertical Slice completed — Course/Semester/Subject CRUD, code auto-gen, nested grids, duration validation, and redesigned AdminLayout wrapper added |
 
 ---
 
