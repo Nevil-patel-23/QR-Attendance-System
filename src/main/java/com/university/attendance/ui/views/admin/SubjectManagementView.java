@@ -101,8 +101,8 @@ public class SubjectManagementView extends VerticalLayout {
     private void generateSubjectCodeSuggestion(CourseResponse course, SemesterResponse semester) {
         String courseCode = course.getCode();
         int semNo = semester.getSemesterNumber();
-        int year = (int) Math.ceil(semNo / 2.0);
-        String prefix = courseCode + year + semNo;
+        int durationYears = course.getDurationYears();
+        String prefix = courseCode + durationYears + semNo;
         
         List<SubjectResponse> existingSubjects = adminService.getSubjectsBySemester(semester.getSemesterId());
         int count = existingSubjects.size();

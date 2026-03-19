@@ -14,7 +14,10 @@ import com.vaadin.flow.component.textfield.PasswordField;
 import com.vaadin.flow.component.textfield.TextField;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 
 @Route("")
 @PageTitle("Login | QR Attendance")
@@ -74,8 +77,14 @@ public class LoginView extends VerticalLayout {
                 LoginRequest loginReq = new LoginRequest(prn, password);
                 AuthResponse response = this.authService.login(loginReq);
                 
-                // Store JWT in browser localStorage via JS execution
-                UI.getCurrent().getPage().executeJs("localStorage.setItem('jwt', $0)", response.getToken());
+                // Store JWT in HTTP-only cookie (sent automatically on every request)
+                Cookie jwtCookie = new Cookie("jwt", response.getToken());
+                jwtCookie.setHttpOnly(true);
+                jwtCookie.setPath("/");
+                jwtCookie.setMaxAge(86400); // 24 hours
+                jwtCookie.setSecure(false);  // set true in production
+                HttpServletResponse httpResponse = (HttpServletResponse) VaadinService.getCurrentResponse();
+                httpResponse.addCookie(jwtCookie);
                 
                 // Redirect based on role
                 String role = response.getRole();
