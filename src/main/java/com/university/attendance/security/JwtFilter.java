@@ -29,6 +29,7 @@ public class JwtFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
         
         String token = null;
+        boolean tokenFromCookie = false;
 
         // 1. Try Authorization header first (for API clients)
         String header = request.getHeader("Authorization");
@@ -43,21 +44,32 @@ public class JwtFilter extends OncePerRequestFilter {
                 for (Cookie cookie : cookies) {
                     if ("jwt".equals(cookie.getName())) {
                         token = cookie.getValue();
+                        tokenFromCookie = true;
                         break;
                     }
                 }
             }
         }
 
-        if (token != null && jwtUtil.validateToken(token)) {
-            String prn = jwtUtil.extractPrn(token);
-            UserDetails userDetails = userDetailsService.loadUserByUsername(prn);
-            
-            UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
-                    userDetails, null, userDetails.getAuthorities());
-            authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-            
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+        if (token != null) {
+            if (jwtUtil.validateToken(token)) {
+                String prn = jwtUtil.extractPrn(token);
+                UserDetails userDetails = userDetailsService.loadUserByUsername(prn);
+
+                UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
+                        userDetails, null, userDetails.getAuthorities());
+                authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
+            } else if (tokenFromCookie) {
+                // Token is invalid or expired — clear the stale cookie so the browser
+                // stops sending it, letting Spring Security redirect to login instead of 403
+                Cookie clearCookie = new Cookie("jwt", "");
+                clearCookie.setMaxAge(0);
+                clearCookie.setPath("/");
+                clearCookie.setHttpOnly(true);
+                response.addCookie(clearCookie);
+            }
         }
 
         filterChain.doFilter(request, response);

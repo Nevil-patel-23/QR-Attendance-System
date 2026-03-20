@@ -2,11 +2,10 @@ package com.university.attendance.controller;
 
 import com.university.attendance.dto.request.CreateCourseRequest;
 import com.university.attendance.dto.request.CreateFacultyRequest;
+import com.university.attendance.dto.request.CreateStudentRequest;
 import com.university.attendance.dto.request.CreateSubjectRequest;
-import com.university.attendance.dto.response.CourseResponse;
-import com.university.attendance.dto.response.FacultyResponse;
-import com.university.attendance.dto.response.SemesterResponse;
-import com.university.attendance.dto.response.SubjectResponse;
+import com.university.attendance.dto.request.CreateTeacherRequest;
+import com.university.attendance.dto.response.*;
 import com.university.attendance.service.AdminService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +13,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.UUID;
@@ -105,5 +105,81 @@ public class AdminController {
     public ResponseEntity<Void> deleteSubject(@PathVariable UUID id) {
         adminService.deleteSubject(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== STUDENT =====
+
+    @GetMapping("/students")
+    public ResponseEntity<List<StudentResponse>> getAllStudents() {
+        return ResponseEntity.ok(adminService.getAllStudents());
+    }
+
+    @PostMapping("/students")
+    public ResponseEntity<StudentResponse> createStudent(@Valid @RequestBody CreateStudentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createStudent(request));
+    }
+
+    @PutMapping("/students/{id}")
+    public ResponseEntity<StudentResponse> updateStudent(@PathVariable UUID id, @Valid @RequestBody CreateStudentRequest request) {
+        return ResponseEntity.ok(adminService.updateStudent(id, request));
+    }
+
+    @DeleteMapping("/students/{id}")
+    public ResponseEntity<Void> deactivateStudent(@PathVariable UUID id) {
+        adminService.deactivateStudent(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/students/import")
+    public ResponseEntity<ExcelImportResponse> importStudents(@RequestParam("file") MultipartFile file) {
+        try {
+            ExcelImportResponse response = adminService.importStudentsFromExcel(file.getInputStream());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ExcelImportResponse.builder()
+                            .totalRows(0).successCount(0).failedCount(0)
+                            .errors(List.of("Failed to process file: " + e.getMessage()))
+                            .build()
+            );
+        }
+    }
+
+    // ===== TEACHER =====
+
+    @GetMapping("/teachers")
+    public ResponseEntity<List<TeacherResponse>> getAllTeachers() {
+        return ResponseEntity.ok(adminService.getAllTeachers());
+    }
+
+    @PostMapping("/teachers")
+    public ResponseEntity<TeacherResponse> createTeacher(@Valid @RequestBody CreateTeacherRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createTeacher(request));
+    }
+
+    @PutMapping("/teachers/{id}")
+    public ResponseEntity<TeacherResponse> updateTeacher(@PathVariable UUID id, @Valid @RequestBody CreateTeacherRequest request) {
+        return ResponseEntity.ok(adminService.updateTeacher(id, request));
+    }
+
+    @DeleteMapping("/teachers/{id}")
+    public ResponseEntity<Void> deactivateTeacher(@PathVariable UUID id) {
+        adminService.deactivateTeacher(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/teachers/import")
+    public ResponseEntity<ExcelImportResponse> importTeachers(@RequestParam("file") MultipartFile file) {
+        try {
+            ExcelImportResponse response = adminService.importTeachersFromExcel(file.getInputStream());
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    ExcelImportResponse.builder()
+                            .totalRows(0).successCount(0).failedCount(0)
+                            .errors(List.of("Failed to process file: " + e.getMessage()))
+                            .build()
+            );
+        }
     }
 }

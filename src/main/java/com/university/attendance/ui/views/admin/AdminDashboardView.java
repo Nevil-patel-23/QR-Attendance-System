@@ -28,8 +28,8 @@ public class AdminDashboardView extends VerticalLayout {
         statCards.setWidthFull();
         statCards.add(createStatCard("Total Faculties", String.valueOf(adminService.getAllFaculties().size())));
         statCards.add(createStatCard("Total Courses", String.valueOf(adminService.getAllCourses().size())));
-        statCards.add(createStatCard("Total Students", "0")); // Not implemented yet
-        statCards.add(createStatCard("Total Teachers", "0")); // Not implemented yet
+        statCards.add(createStatCard("Total Students", String.valueOf(adminService.getAllStudents().size())));
+        statCards.add(createStatCard("Total Teachers", String.valueOf(adminService.getAllTeachers().size())));
 
         HorizontalLayout navigation = new HorizontalLayout();
         
@@ -42,8 +42,11 @@ public class AdminDashboardView extends VerticalLayout {
         Button subjectsBtn = new Button("Manage Subjects", e -> UI.getCurrent().navigate(SubjectManagementView.class));
         subjectsBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         
-        Button studentsBtn = new Button("Manage Students");
-        Button teachersBtn = new Button("Manage Teachers");
+        Button studentsBtn = new Button("Manage Students", e -> UI.getCurrent().navigate(StudentManagementView.class));
+        studentsBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+        
+        Button teachersBtn = new Button("Manage Teachers", e -> UI.getCurrent().navigate(TeacherManagementView.class));
+        teachersBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         
         navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn);
 

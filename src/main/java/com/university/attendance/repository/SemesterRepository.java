@@ -5,10 +5,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface SemesterRepository extends JpaRepository<Semester, UUID> {
     List<Semester> findByCourseCourseId(UUID courseId);
     List<Semester> findByCourseCourseIdOrderBySemesterNumberAsc(UUID courseId);
+    Optional<Semester> findByCourseCourseIdAndSemesterNumber(UUID courseId, int semesterNumber);
 }
