@@ -6,7 +6,7 @@
 
 ## Current Status
 
-Phase: Vertical Slices 1 through 5 complete — ready for Slice 6
+Phase: Slice 6 complete, ready for Slice 7
 
 ---
 
@@ -181,6 +181,14 @@ Phase: Vertical Slices 1 through 5 complete — ready for Slice 6
 - [x] AdminDashboardView — Calendar and Holiday
       navigation buttons added
 
+### Vertical Slice 6 — Teacher Allocation + Timetable Management ✅
+- [x] Teacher Allocation + Timetable Management done.
+- [x] Single combined form creates allocation and slot together.
+- [x] Auto effectiveFrom from academic calendar.
+- [x] Hard double booking block.
+- [x] Excel import with preview.
+- [x] Timezone fixed to Asia/Kolkata.
+
 ---
 
 ## In Progress 🔄
@@ -191,22 +199,18 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Vertical Slice 6 — Teacher Allocation + Timetable (A10, A11)
+Vertical Slice 7 — Live QR Generation (T1, T2)
 
 ---
 
 ## Not Started 📋
-- [ ] Vertical Slice 6 — Teacher Allocation + Timetable
-- [ ] Vertical Slice 7 — Live QR Generation (T1, T2)
-- [ ] Vertical Slice 8 — QR Scanner + Attendance
-      Validation (ST2)
-- [ ] Vertical Slice 9 — Student Dashboard +
-      Attendance Views (ST1, ST3, ST4, ST5)
-- [ ] Vertical Slice 10 — Teacher Reports +
-      Timetable (T3, T4, T5)
-- [ ] Vertical Slice 11 — Remaining Admin Screens
-      (A9, A12)
-- [ ] Vertical Slice 12 — Profile Screen (S2)
+- [ ] Slice 7 — Live QR Generation (T1, T2)
+- [ ] Slice 8 — Elective Enrollment (A9)
+- [ ] Slice 9 — QR Scanner + Attendance (ST2)
+- [ ] Slice 10 — Student Dashboard (ST1, ST3, ST4, ST5)
+- [ ] Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
+- [ ] Slice 12 — Attendance Overview Report (A12)
+- [ ] Slice 13 — Profile Screen (S2)
 - [ ] Step 10 — Testing
 
 ---
@@ -237,6 +241,7 @@ Vertical Slice 6 — Teacher Allocation + Timetable (A10, A11)
 | 18 Mar 2025 | Security fixes — JWT cookie, 403 redirect, devmode disabled |
 | 18 Mar 2025 | Slice 4 complete — Student + Teacher Management, Excel import with preview, soft delete, auto-generated passwords |
 | 20 Mar 2025 | Slice 5 complete — Academic Calendar + Holiday Management, Excel import with preview, multi-format date parser, layout fixes |
+| 21 Mar 2025 | Vertical Slice 6 complete — Teacher Allocation + Timetable Management |
 
 ---
 
@@ -301,3 +306,6 @@ month < 6  → (currentYear-1)*100 + currentYear%100
 ### Next migration number
 Next migration number: V4
 Never modify V1, V2, V3.
+
+### Timetable entry flow
+One form → get-or-create allocation → create slot → effectiveFrom auto from calendar → double booking is hard block → delete slot cleans up orphan allocation automatically

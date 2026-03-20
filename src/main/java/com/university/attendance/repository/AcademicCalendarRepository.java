@@ -16,4 +16,7 @@ public interface AcademicCalendarRepository extends JpaRepository<AcademicCalend
 
     boolean existsByCourseCourseIdAndAcademicYearAndSemesterNumber(
             UUID courseId, String academicYear, Integer semesterNumber);
+
+    java.util.Optional<AcademicCalendar> findByCourseCourseIdAndAcademicYearAndSemesterNumber(
+            UUID courseId, String academicYear, Integer semesterNumber);
 }

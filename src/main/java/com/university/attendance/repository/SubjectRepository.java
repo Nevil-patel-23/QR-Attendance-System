@@ -11,4 +11,5 @@ import java.util.UUID;
 public interface SubjectRepository extends JpaRepository<Subject, UUID> {
     List<Subject> findBySemesterSemesterId(UUID semesterId);
     boolean existsByCode(String code);
+    java.util.Optional<Subject> findByCode(String code);
 }

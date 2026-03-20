@@ -7,6 +7,7 @@ import com.university.attendance.dto.request.CreateHolidayRequest;
 import com.university.attendance.dto.request.CreateStudentRequest;
 import com.university.attendance.dto.request.CreateSubjectRequest;
 import com.university.attendance.dto.request.CreateTeacherRequest;
+import com.university.attendance.dto.request.CreateTimetableEntryRequest;
 import com.university.attendance.dto.response.*;
 import com.university.attendance.service.AdminService;
 import jakarta.validation.Valid;
@@ -270,5 +271,43 @@ public class AdminController {
     @PostMapping("/holidays/confirm-import")
     public ResponseEntity<ExcelImportResponse> confirmHolidayImport(@RequestBody List<HolidayImportRow> previewRows) {
         return ResponseEntity.ok(adminService.confirmHolidayImport(previewRows));
+    }
+
+    // ===== TIMETABLE ENTRY =====
+
+    @GetMapping("/timetable")
+    public ResponseEntity<List<TimetableEntryResponse>> getTimetableBySemester(
+            @RequestParam UUID semesterId, 
+            @RequestParam String academicYear) {
+        return ResponseEntity.ok(adminService.getTimetableBySemester(semesterId, academicYear));
+    }
+
+    @PostMapping("/timetable")
+    public ResponseEntity<TimetableEntryResponse> createTimetableEntry(@Valid @RequestBody CreateTimetableEntryRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createTimetableEntry(request));
+    }
+
+    @DeleteMapping("/timetable/{slotId}")
+    public ResponseEntity<Void> deleteTimetableEntry(@PathVariable UUID slotId) {
+        adminService.deleteTimetableEntry(slotId);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/timetable/preview-import")
+    public ResponseEntity<List<TimetableImportRow>> previewTimetableImport(@RequestParam("file") MultipartFile file) {
+        try {
+            List<TimetableImportRow> preview = adminService.previewTimetableImport(file.getInputStream());
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    List.of(TimetableImportRow.builder().rowNumber(0).isValid(false)
+                            .errorMessage("Failed to process file: " + e.getMessage()).build())
+            );
+        }
+    }
+
+    @PostMapping("/timetable/confirm-import")
+    public ResponseEntity<ExcelImportResponse> confirmTimetableImport(@RequestBody List<TimetableImportRow> previewRows) {
+        return ResponseEntity.ok(adminService.confirmTimetableImport(previewRows));
     }
 }

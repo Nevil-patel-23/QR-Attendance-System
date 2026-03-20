@@ -185,11 +185,13 @@ Build everything needed for login to work completely end to end, then test it, t
 
 ---
 
-## Vertical Slice 6 — Teacher Allocation + Timetable (A10, A11)
+## Vertical Slice 6 — Teacher Allocation + Timetable (A10, A11) ✅ COMPLETE
 
-- [ ] Repositories: TeacherSubjectAllocationRepository, TimetableSlotRepository
-- [ ] TimetableService — slot management, double-booking check
-- [ ] Vaadin views: TeacherAllocationView, TimetableBuilderView + Excel upload
+> **Design Decision:** TeacherAllocationView removed — allocation logic fully embedded in TimetableBuilderView via get-or-create pattern.
+
+- [x] Repositories: TeacherSubjectAllocationRepository, TimetableSlotRepository
+- [x] TimetableService — slot management, double-booking check
+- [x] Vaadin views: TeacherAllocationView, TimetableBuilderView + Excel upload
 
 ---
 
@@ -204,7 +206,14 @@ Build everything needed for login to work completely end to end, then test it, t
 
 ---
 
-## Vertical Slice 8 — QR Scanner (ST2) + Attendance Validation
+## Vertical Slice 8 — Elective Enrollment (A9)
+
+- [ ] AdminService — elective enrollment management
+- [ ] Vaadin views: ElectiveEnrollmentView
+
+---
+
+## Vertical Slice 9 — QR Scanner + Attendance (ST2)
 
 - [ ] AttendanceRecordRepository
 - [ ] StudentSubjectEnrollmentRepository
@@ -223,7 +232,7 @@ Build everything needed for login to work completely end to end, then test it, t
 
 ---
 
-## Vertical Slice 9 — Student Dashboard + Attendance Views (ST1, ST3, ST4, ST5)
+## Vertical Slice 10 — Student Dashboard + Attendance Views (ST1, ST3, ST4, ST5)
 
 - [ ] StudentService — attendance % per subject, today's timetable
 - [ ] StudentController
@@ -231,7 +240,7 @@ Build everything needed for login to work completely end to end, then test it, t
 
 ---
 
-## Vertical Slice 10 — Teacher Reports + Timetable (T3, T4, T5)
+## Vertical Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 
 - [ ] TeacherService — attendance reports, today's timetable
 - [ ] TeacherController
@@ -239,14 +248,14 @@ Build everything needed for login to work completely end to end, then test it, t
 
 ---
 
-## Vertical Slice 11 — Remaining Admin Screens (A9, A12)
+## Vertical Slice 12 — Attendance Overview Report (A12)
 
-- [ ] AdminService — elective enrollment management, attendance overview report
-- [ ] Vaadin views: ElectiveEnrollmentView, AttendanceOverviewReport (with Excel export)
+- [ ] AdminService — attendance overview report
+- [ ] Vaadin views: AttendanceOverviewReport (with Excel export)
 
 ---
 
-## Vertical Slice 12 — Profile Screen (S2)
+## Vertical Slice 13 — Profile Screen (S2)
 
 - [ ] AuthService — change password
 - [ ] Vaadin views: ProfileView (all roles)

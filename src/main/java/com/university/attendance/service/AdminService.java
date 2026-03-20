@@ -14,7 +14,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.io.InputStream;
+import com.university.attendance.models.DayOfWeek;
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.*;
@@ -35,6 +37,8 @@ public class AdminService {
     private final EntityManager entityManager;
     private final AcademicCalendarRepository academicCalendarRepository;
     private final HolidayRepository holidayRepository;
+    private final TeacherSubjectAllocationRepository teacherSubjectAllocationRepository;
+    private final TimetableSlotRepository timetableSlotRepository;
 
     // ===== FACULTY MANAGEMENT =====
 
@@ -1413,6 +1417,343 @@ public class AdminService {
                 .name(holiday.getName())
                 .date(holiday.getDate())
                 .type(holiday.getType())
+                .build();
+    }
+
+    // ===== TIMETABLE ENTRY MANAGEMENT =====
+
+    @Transactional(readOnly = true)
+    public List<TimetableEntryResponse> getTimetableBySemester(UUID semesterId, String academicYear) {
+        List<TimetableSlot> slots = timetableSlotRepository.findByAllocationSemesterSemesterIdAndEffectiveToIsNull(semesterId);
+        
+        return slots.stream()
+                .filter(s -> s.getAllocation().getAcademicYear().equals(academicYear))
+                .sorted(Comparator.comparing(TimetableSlot::getDayOfWeek).thenComparing(TimetableSlot::getStartTime))
+                .map(this::mapToTimetableEntryResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public TimetableEntryResponse createTimetableEntry(CreateTimetableEntryRequest request) {
+        if (!request.getEndTime().isAfter(request.getStartTime())) {
+            throw new ValidationException("End time must be after start time");
+        }
+
+        Teacher teacher = teacherRepository.findById(request.getTeacherId())
+                .orElseThrow(() -> new ResourceNotFoundException("Teacher not found"));
+        
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+
+        if (!subject.getSemester().getSemesterId().equals(request.getSemesterId())) {
+            throw new ValidationException("Subject does not belong to selected semester");
+        }
+
+        Semester semester = semesterRepository.findById(request.getSemesterId())
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found"));
+        
+        Course course = courseRepository.findById(request.getCourseId())
+                .orElseThrow(() -> new ResourceNotFoundException("Course not found"));
+
+        TeacherSubjectAllocation allocation = teacherSubjectAllocationRepository
+                .findByTeacherTeacherIdAndSubjectSubjectIdAndSemesterSemesterIdAndAcademicYear(
+                        request.getTeacherId(), request.getSubjectId(), request.getSemesterId(), request.getAcademicYear()
+                )
+                .orElseGet(() -> {
+                    TeacherSubjectAllocation newAlloc = TeacherSubjectAllocation.builder()
+                            .teacher(teacher)
+                            .subject(subject)
+                            .semester(semester)
+                            .academicYear(request.getAcademicYear())
+                            .build();
+                    return teacherSubjectAllocationRepository.save(newAlloc);
+                });
+
+        int calendarSemesterNumber = (semester.getSemesterNumber() % 2 == 1) ? 1 : 2;
+        AcademicCalendar calendar = academicCalendarRepository
+                .findByCourseCourseIdAndAcademicYearAndSemesterNumber(
+                        course.getCourseId(), request.getAcademicYear(), calendarSemesterNumber
+                )
+                .orElseThrow(() -> new ValidationException(
+                        "No academic calendar found for this course and academic year. Please set up the academic calendar first."
+                ));
+
+        boolean hasOverlap = timetableSlotRepository.existsByAllocationTeacherTeacherIdAndDayOfWeekAndStartTimeLessThanAndEndTimeGreaterThanAndEffectiveToIsNull(
+                request.getTeacherId(), request.getDayOfWeek(), request.getEndTime(), request.getStartTime()
+        );
+        if (hasOverlap) {
+            throw new ValidationException("Teacher already has a lecture on " + request.getDayOfWeek() + 
+                    " between this time. Please choose a different time.");
+        }
+
+        TimetableSlot slot = TimetableSlot.builder()
+                .allocation(allocation)
+                .dayOfWeek(request.getDayOfWeek())
+                .startTime(request.getStartTime())
+                .endTime(request.getEndTime())
+                .room(request.getRoom())
+                .effectiveFrom(calendar.getStartDate())
+                .build();
+
+        return mapToTimetableEntryResponse(timetableSlotRepository.save(slot));
+    }
+
+    @Transactional
+    public void deleteTimetableEntry(UUID slotId) {
+        TimetableSlot slot = timetableSlotRepository.findById(slotId)
+                .orElseThrow(() -> new ResourceNotFoundException("Timetable slot not found"));
+        
+        TeacherSubjectAllocation allocation = slot.getAllocation();
+        timetableSlotRepository.delete(slot);
+        timetableSlotRepository.flush(); 
+
+        long remainingSlots = timetableSlotRepository.findByAllocationAllocationId(allocation.getAllocationId()).size();
+        if (remainingSlots == 0) {
+            teacherSubjectAllocationRepository.delete(allocation);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<TimetableImportRow> previewTimetableImport(InputStream inputStream) {
+        List<TimetableImportRow> rows = new ArrayList<>();
+        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
+            Sheet sheet = workbook.getSheetAt(0);
+            Row headerRow = sheet.getRow(0);
+            if (headerRow == null) {
+                rows.add(TimetableImportRow.builder().rowNumber(0).isValid(false)
+                        .errorMessage("Excel file has no header row").build());
+                return rows;
+            }
+
+            Map<String, Integer> headerMap = buildHeaderMap(headerRow);
+            String[] requiredHeaders = {
+                "teacherprn", "subjectcode", "coursecode", "semesternumber", 
+                "academicyear", "day", "starttime", "endtime", "room"
+            };
+            for (String h : requiredHeaders) {
+                if (!headerMap.containsKey(h)) {
+                    rows.add(TimetableImportRow.builder().rowNumber(0).isValid(false)
+                            .errorMessage("Required column missing: " + h).build());
+                    return rows;
+                }
+            }
+
+            DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("H:mm");
+
+            for (int rowIdx = 1; rowIdx <= sheet.getLastRowNum(); rowIdx++) {
+                Row row = sheet.getRow(rowIdx);
+                if (row == null) continue;
+
+                String teacherPrn = getCellStringValue(row, headerMap.get("teacherprn"));
+                String subjectCode = getCellStringValue(row, headerMap.get("subjectcode"));
+
+                if ((teacherPrn == null || teacherPrn.isBlank()) && (subjectCode == null || subjectCode.isBlank())) {
+                    continue; 
+                }
+
+                String courseCode = getCellStringValue(row, headerMap.get("coursecode"));
+                String semesterStr = getCellStringValue(row, headerMap.get("semesternumber"));
+                String academicYear = getCellStringValue(row, headerMap.get("academicyear"));
+                String dayStr = getCellStringValue(row, headerMap.get("day"));
+                String startStr = getCellStringValue(row, headerMap.get("starttime"));
+                String endStr = getCellStringValue(row, headerMap.get("endtime"));
+                String room = getCellStringValue(row, headerMap.get("room"));
+
+                TimetableImportRow.TimetableImportRowBuilder builder = TimetableImportRow.builder()
+                        .rowNumber(rowIdx + 1)
+                        .teacherPrn(teacherPrn).subjectCode(subjectCode)
+                        .courseCode(courseCode).semesterNumber(semesterStr).academicYear(academicYear)
+                        .day(dayStr).startTime(startStr).endTime(endStr).room(room);
+
+                String error = null;
+                DayOfWeek dayOfWeek = null;
+                LocalTime startTime = null;
+                LocalTime endTime = null;
+
+                try {
+                    if (teacherPrn == null || teacherPrn.isBlank()) error = "Teacher PRN is empty";
+                    else if (subjectCode == null || subjectCode.isBlank()) error = "Subject Code is empty";
+                    else if (courseCode == null || courseCode.isBlank()) error = "Course Code is empty";
+                    else if (semesterStr == null || semesterStr.isBlank()) error = "Semester Number is empty";
+                    else if (academicYear == null || academicYear.isBlank()) error = "Academic Year is empty";
+                    else if (dayStr == null || dayStr.isBlank()) error = "Day is empty";
+                    else if (startStr == null || startStr.isBlank()) error = "Start Time is empty";
+                    else if (endStr == null || endStr.isBlank()) error = "End Time is empty";
+                    else if (room == null || room.isBlank()) error = "Room is empty";
+
+                    if (error == null) {
+                        try {
+                            String d = dayStr.trim().toUpperCase();
+                            if (d.startsWith("MON")) dayOfWeek = DayOfWeek.MON;
+                            else if (d.startsWith("TUE")) dayOfWeek = DayOfWeek.TUE;
+                            else if (d.startsWith("WED")) dayOfWeek = DayOfWeek.WED;
+                            else if (d.startsWith("THU")) dayOfWeek = DayOfWeek.THU;
+                            else if (d.startsWith("FRI")) dayOfWeek = DayOfWeek.FRI;
+                            else if (d.startsWith("SAT")) dayOfWeek = DayOfWeek.SAT;
+                            else throw new IllegalArgumentException();
+                        } catch (IllegalArgumentException e) {
+                            error = "Invalid day format (use MON, TUE, etc)";
+                        }
+                    }
+
+                    if (error == null) {
+                        try {
+                            startTime = LocalTime.parse(startStr.trim(), timeFormatter);
+                        } catch (DateTimeParseException e) {
+                            error = "Invalid start time format (use HH:mm or H:mm)";
+                        }
+                    }
+
+                    if (error == null) {
+                        try {
+                            endTime = LocalTime.parse(endStr.trim(), timeFormatter);
+                        } catch (DateTimeParseException e) {
+                            error = "Invalid end time format (use HH:mm or H:mm)";
+                        }
+                    }
+
+                    if (error == null) {
+                        if (!endTime.isAfter(startTime)) {
+                            error = "End time must be after start time";
+                        } else if (startTime.isBefore(LocalTime.of(8, 0)) || endTime.isAfter(LocalTime.of(18, 0))) {
+                            error = "Time must be between 08:00 and 18:00";
+                        }
+                    }
+
+                    if (error == null) {
+                        int semNum = Integer.parseInt(semesterStr);
+                        Optional<Course> cOpt = courseRepository.findByCode(courseCode);
+                        if (cOpt.isEmpty()) {
+                            error = "Course Code not found";
+                        } else {
+                            UUID cId = cOpt.get().getCourseId();
+                            Optional<Semester> sOpt = semesterRepository.findByCourseCourseIdAndSemesterNumber(cId, semNum);
+                            if (sOpt.isEmpty()) {
+                                error = "Semester not found for course";
+                            } else {
+                                Semester sem = sOpt.get();
+                                Optional<Teacher> tOpt = teacherRepository.findByPrn(teacherPrn);
+                                if (tOpt.isEmpty()) {
+                                    error = "Teacher PRN not found";
+                                } else {
+                                    Teacher t = tOpt.get();
+                                    Optional<Subject> subOpt = subjectRepository.findByCode(subjectCode);
+                                    if (subOpt.isEmpty()) {
+                                        error = "Subject Code not found";
+                                    } else {
+                                        Subject sub = subOpt.get();
+                                        if (!sub.getSemester().getSemesterId().equals(sem.getSemesterId())) {
+                                            error = "Subject does not belong to this semester";
+                                        } else {
+                                            int calSemNum = (semNum % 2 == 1) ? 1 : 2;
+                                            boolean hasCal = academicCalendarRepository.existsByCourseCourseIdAndAcademicYearAndSemesterNumber(
+                                                    cId, academicYear, calSemNum
+                                            );
+                                            if (!hasCal) {
+                                                error = "No academic calendar found for this batch. Set it up first.";
+                                            } else {
+                                                boolean hasOverlap = timetableSlotRepository.existsByAllocationTeacherTeacherIdAndDayOfWeekAndStartTimeLessThanAndEndTimeGreaterThanAndEffectiveToIsNull(
+                                                        t.getTeacherId(), dayOfWeek, endTime, startTime
+                                                );
+                                                if (hasOverlap) {
+                                                    error = "Teacher double booking conflict on " + dayOfWeek;
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                } catch (NumberFormatException e) {
+                    error = "Invalid semester number format";
+                }
+
+                if (error != null) {
+                    builder.isValid(false).errorMessage("Error: " + error);
+                } else {
+                    builder.isValid(true).errorMessage("Ready");
+                }
+                rows.add(builder.build());
+            }
+
+        } catch (Exception e) {
+            rows.add(TimetableImportRow.builder().rowNumber(0).isValid(false)
+                    .errorMessage("Failed: " + e.getMessage()).build());
+        }
+
+        return rows;
+    }
+
+    @Transactional
+    public ExcelImportResponse confirmTimetableImport(List<TimetableImportRow> previewRows) {
+        int successCount = 0;
+        List<String> errors = new ArrayList<>();
+        DateTimeFormatter timeFormatter = DateTimeFormatter.ofPattern("H:mm");
+
+        for (TimetableImportRow row : previewRows) {
+            if (!row.isValid()) continue;
+            try {
+                Teacher teacher = teacherRepository.findByPrn(row.getTeacherPrn()).orElseThrow();
+                Subject subject = subjectRepository.findByCode(row.getSubjectCode()).orElseThrow();
+                Course course = courseRepository.findByCode(row.getCourseCode()).orElseThrow();
+                Semester semester = semesterRepository.findByCourseCourseIdAndSemesterNumber(
+                        course.getCourseId(), Integer.parseInt(row.getSemesterNumber())).orElseThrow();
+
+                CreateTimetableEntryRequest req = new CreateTimetableEntryRequest();
+                req.setCourseId(course.getCourseId());
+                req.setSemesterId(semester.getSemesterId());
+                req.setAcademicYear(row.getAcademicYear());
+                req.setTeacherId(teacher.getTeacherId());
+                req.setSubjectId(subject.getSubjectId());
+                
+                String d = row.getDay().trim().toUpperCase();
+                if (d.startsWith("MON")) req.setDayOfWeek(DayOfWeek.MON);
+                else if (d.startsWith("TUE")) req.setDayOfWeek(DayOfWeek.TUE);
+                else if (d.startsWith("WED")) req.setDayOfWeek(DayOfWeek.WED);
+                else if (d.startsWith("THU")) req.setDayOfWeek(DayOfWeek.THU);
+                else if (d.startsWith("FRI")) req.setDayOfWeek(DayOfWeek.FRI);
+                else if (d.startsWith("SAT")) req.setDayOfWeek(DayOfWeek.SAT);
+                
+                req.setStartTime(LocalTime.parse(row.getStartTime().trim(), timeFormatter));
+                req.setEndTime(LocalTime.parse(row.getEndTime().trim(), timeFormatter));
+                req.setRoom(row.getRoom());
+                
+                createTimetableEntry(req);
+                successCount++;
+            } catch (Exception e) {
+                errors.add("Row " + row.getRowNumber() + ": " + e.getMessage());
+            }
+        }
+
+        long totalValid = previewRows.stream().filter(TimetableImportRow::isValid).count();
+        return ExcelImportResponse.builder()
+                .totalRows((int) totalValid)
+                .successCount(successCount)
+                .failedCount((int) totalValid - successCount)
+                .errors(errors)
+                .build();
+    }
+
+    private TimetableEntryResponse mapToTimetableEntryResponse(TimetableSlot slot) {
+        TeacherSubjectAllocation alloc = slot.getAllocation();
+        return TimetableEntryResponse.builder()
+                .slotId(slot.getSlotId())
+                .allocationId(alloc.getAllocationId())
+                .teacherName(alloc.getTeacher().getFirstName() + " " + alloc.getTeacher().getLastName())
+                .teacherPrn(alloc.getTeacher().getPrn())
+                .subjectName(alloc.getSubject().getName())
+                .subjectCode(alloc.getSubject().getCode())
+                .semesterLabel(alloc.getSemester().getLabel())
+                .courseName(alloc.getSemester().getCourse().getName())
+                .courseCode(alloc.getSemester().getCourse().getCode())
+                .academicYear(alloc.getAcademicYear())
+                .dayOfWeek(slot.getDayOfWeek())
+                .startTime(slot.getStartTime())
+                .endTime(slot.getEndTime())
+                .room(slot.getRoom())
+                .effectiveFrom(slot.getEffectiveFrom())
                 .build();
     }
 }
