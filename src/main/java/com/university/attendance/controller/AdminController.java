@@ -1,7 +1,9 @@
 package com.university.attendance.controller;
 
+import com.university.attendance.dto.request.CreateAcademicCalendarRequest;
 import com.university.attendance.dto.request.CreateCourseRequest;
 import com.university.attendance.dto.request.CreateFacultyRequest;
+import com.university.attendance.dto.request.CreateHolidayRequest;
 import com.university.attendance.dto.request.CreateStudentRequest;
 import com.university.attendance.dto.request.CreateSubjectRequest;
 import com.university.attendance.dto.request.CreateTeacherRequest;
@@ -181,5 +183,92 @@ public class AdminController {
                             .build()
             );
         }
+    }
+
+    // ===== ACADEMIC CALENDAR =====
+
+    @GetMapping("/calendars")
+    public ResponseEntity<List<AcademicCalendarResponse>> getAllCalendars() {
+        return ResponseEntity.ok(adminService.getAllCalendars());
+    }
+
+    @GetMapping("/calendars/course/{courseId}")
+    public ResponseEntity<List<AcademicCalendarResponse>> getCalendarsByCourse(@PathVariable UUID courseId) {
+        return ResponseEntity.ok(adminService.getCalendarsByCourse(courseId));
+    }
+
+    @PostMapping("/calendars")
+    public ResponseEntity<AcademicCalendarResponse> createCalendar(@Valid @RequestBody CreateAcademicCalendarRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createCalendar(request));
+    }
+
+    @PutMapping("/calendars/{id}")
+    public ResponseEntity<AcademicCalendarResponse> updateCalendar(@PathVariable UUID id, @Valid @RequestBody CreateAcademicCalendarRequest request) {
+        return ResponseEntity.ok(adminService.updateCalendar(id, request));
+    }
+
+    @DeleteMapping("/calendars/{id}")
+    public ResponseEntity<Void> deleteCalendar(@PathVariable UUID id) {
+        adminService.deleteCalendar(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/calendars/preview-import")
+    public ResponseEntity<List<AcademicCalendarImportRow>> previewCalendarImport(@RequestParam("file") MultipartFile file) {
+        try {
+            List<AcademicCalendarImportRow> preview = adminService.previewCalendarImport(file.getInputStream());
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    List.of(AcademicCalendarImportRow.builder().rowNumber(0).isValid(false)
+                            .errorMessage("Failed to process file: " + e.getMessage()).build())
+            );
+        }
+    }
+
+    @PostMapping("/calendars/confirm-import")
+    public ResponseEntity<ExcelImportResponse> confirmCalendarImport(@RequestBody List<AcademicCalendarImportRow> previewRows) {
+        return ResponseEntity.ok(adminService.confirmCalendarImport(previewRows));
+    }
+
+    // ===== HOLIDAY =====
+
+    @GetMapping("/holidays")
+    public ResponseEntity<List<HolidayResponse>> getAllHolidays() {
+        return ResponseEntity.ok(adminService.getAllHolidays());
+    }
+
+    @PostMapping("/holidays")
+    public ResponseEntity<HolidayResponse> createHoliday(@Valid @RequestBody CreateHolidayRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createHoliday(request));
+    }
+
+    @PutMapping("/holidays/{id}")
+    public ResponseEntity<HolidayResponse> updateHoliday(@PathVariable UUID id, @Valid @RequestBody CreateHolidayRequest request) {
+        return ResponseEntity.ok(adminService.updateHoliday(id, request));
+    }
+
+    @DeleteMapping("/holidays/{id}")
+    public ResponseEntity<Void> deleteHoliday(@PathVariable UUID id) {
+        adminService.deleteHoliday(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/holidays/preview-import")
+    public ResponseEntity<List<HolidayImportRow>> previewHolidayImport(@RequestParam("file") MultipartFile file) {
+        try {
+            List<HolidayImportRow> preview = adminService.previewHolidayImport(file.getInputStream());
+            return ResponseEntity.ok(preview);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(
+                    List.of(HolidayImportRow.builder().rowNumber(0).isValid(false)
+                            .errorMessage("Failed to process file: " + e.getMessage()).build())
+            );
+        }
+    }
+
+    @PostMapping("/holidays/confirm-import")
+    public ResponseEntity<ExcelImportResponse> confirmHolidayImport(@RequestBody List<HolidayImportRow> previewRows) {
+        return ResponseEntity.ok(adminService.confirmHolidayImport(previewRows));
     }
 }

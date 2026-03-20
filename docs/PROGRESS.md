@@ -6,12 +6,7 @@
 
 ## Current Status
 
-**Phase: Vertical Slices 2 & 3 — Faculty, Course, and Subject Management (complete, ready for next vertical slice)**
-
-- AdminLayout implemented with breadcrumb navigation (no sidebar)
-- Faculty Management CRUD fully functional
-- Course Management CRUD fully functional with automatic semester generation and duration validation
-- Subject Management CRUD fully functional with cascading dropdowns and subject code auto-generation
+Phase: Vertical Slices 1 through 5 complete — ready for Slice 6
 
 ---
 
@@ -91,28 +86,127 @@
 - [x] Service layer `@Transactional` boundaries updated to resolve `LazyInitializationException`
 - [x] `AdminLayout` created as a shared wrapper (horizontal top bar with breadcrumb path, eliminating sidebar)
 
+### Security & Infrastructure Fixes ✅
+- [x] JWT storage moved from localStorage to HTTP-only cookie
+      (fixes browser refresh 403 error)
+- [x] JwtFilter updated to read token from cookie with
+      null-safe getCookies() check
+- [x] JwtFilter clears invalid/expired cookie automatically
+      by setting maxAge=0
+- [x] SecurityConfig updated with authenticationEntryPoint
+      and accessDeniedHandler — redirects to login page
+      instead of returning 403
+- [x] vaadin.devmode.enabled=false added to
+      application.properties — fixes too many cookies
+      error in development mode
+- [x] V3__remove_username.sql — dropped username column,
+      made prn NOT NULL in users table
+
+### Vertical Slice 4 — Student + Teacher Management ✅
+- [x] StudentRepository and TeacherRepository with PRN
+      queries and course/faculty lookups
+- [x] CreateStudentRequest and CreateTeacherRequest DTOs
+      (no password field — auto-generated)
+- [x] StudentResponse and TeacherResponse DTOs with
+      isActive field
+- [x] ExcelImportResponse DTO for bulk import results
+- [x] StudentImportRow and TeacherImportRow DTOs with
+      phone field included
+- [x] AdminService — createStudent() creates User +
+      Student in one @Transactional method
+- [x] AdminService — createTeacher() creates User +
+      Teacher in one @Transactional method
+- [x] Default password auto-generated as:
+      firstName + "@" + last4DigitsOfPRN
+      using prn.substring(prn.length() - 4) — robust
+      for any PRN length
+- [x] AdminService — deactivateStudent() and
+      deactivateTeacher() — soft delete only,
+      sets user.isActive = false, never hard deletes
+- [x] AdminService — updateStudent() and updateTeacher()
+      — never changes PRN or password
+- [x] Excel import with two-step preview → confirm flow
+      for both students and teachers
+- [x] Excel header matching: case-insensitive, ignores
+      underscores, hyphens, and spaces
+- [x] Empty trailing rows silently skipped in all
+      Excel imports
+- [x] Phone field included in StudentImportRow and
+      TeacherImportRow — saves correctly to DB
+- [x] AuthService name fix — returns actual
+      firstName + lastName instead of role name
+- [x] AdminController — all student and teacher endpoints
+      including preview-import and confirm-import
+- [x] StudentManagementView — CRUD + Excel import,
+      default semester=1, batch year auto-calculated
+      as 202627 format, edit dropdowns pre-populated
+      using ID-based matching
+- [x] TeacherManagementView — CRUD + Excel import,
+      edit faculty dropdown pre-populated using
+      ID-based matching
+- [x] AdminDashboardView — Total Students and Total
+      Teachers stat cards connected to real counts
+- [x] TeacherDashboardView route fixed to "teacher"
+- [x] StudentDashboardView route fixed to "student"
+
+### Vertical Slice 5 — Academic Calendar + Holiday Management ✅
+- [x] AcademicCalendarRepository and HolidayRepository
+- [x] CreateAcademicCalendarRequest,
+      CreateHolidayRequest DTOs
+- [x] AcademicCalendarResponse — semesterLabel shows
+      "Odd Semester" or "Even Semester" only
+- [x] HolidayResponse, HolidayImportRow,
+      AcademicCalendarImportRow DTOs
+- [x] AdminService — Academic Calendar CRUD with
+      duplicate validation and date range validation
+- [x] AdminService — Holiday CRUD with duplicate
+      date validation
+- [x] Multi-format date parser — accepts yyyy-MM-dd,
+      dd/MM/yyyy, dd-MM-yyyy, d-M-yyyy, MM/dd/yyyy,
+      yyyy/MM/dd and Excel native date cells
+      dd-MM-yyyy tried before MM-dd-yyyy to avoid
+      day/month swap bug
+- [x] Holiday Excel import — two-step preview →
+      confirm flow with validation
+- [x] Academic Calendar Excel import — two-step
+      preview → confirm flow with validation
+- [x] AdminController — all calendar and holiday
+      endpoints including preview-import and
+      confirm-import
+- [x] AcademicCalendarView — CRUD + Excel import,
+      import button positioned below form matching
+      Teacher Management layout style
+- [x] HolidayManagementView — CRUD + Excel import
+      with two-step preview flow
+- [x] AdminDashboardView — Calendar and Holiday
+      navigation buttons added
+
 ---
 
 ## In Progress 🔄
 
-*Nothing in progress — session ended*
+Nothing in progress — session ended
 
 ---
 
 ## Next Up ⏭️
 
-### Step 3 — Repository interfaces (14 files, one per model)
+Vertical Slice 6 — Teacher Allocation + Timetable (A10, A11)
 
 ---
 
 ## Not Started 📋
-- [ ] Step 3 — Repository interfaces
-- [ ] Step 4 — Security (JWT + Spring Security)
-- [ ] Step 5 — DTOs
-- [ ] Step 6 — Exception handling
-- [ ] Step 7 — Service layer (business logic)
-- [ ] Step 8 — Controllers (API endpoints)
-- [ ] Step 9 — Vaadin UI (26 screens)
+- [ ] Vertical Slice 6 — Teacher Allocation + Timetable
+- [ ] Vertical Slice 7 — Live QR Generation (T1, T2)
+- [ ] Vertical Slice 8 — QR Scanner + Attendance
+      Validation (ST2)
+- [ ] Vertical Slice 9 — Student Dashboard +
+      Attendance Views (ST1, ST3, ST4, ST5)
+- [ ] Vertical Slice 10 — Teacher Reports +
+      Timetable (T3, T4, T5)
+- [ ] Vertical Slice 11 — Remaining Admin Screens
+      (A9, A12)
+- [ ] Vertical Slice 12 — Profile Screen (S2)
 - [ ] Step 10 — Testing
 
 ---
@@ -140,6 +234,9 @@
 | 18 Mar 2025 | Login Vaadin UI completed — SecurityConfig Vaadin bypass, LoginView with JWT storage, and 3 Dashboard placeholders completed |
 | 18 Mar 2025 | Faculty Management Vertical Slice completed — Faculty CRUD, AdminService logic, and stats integrated on Admin Dashboard |
 | 18 Mar 2025 | Course & Subject Management Vertical Slice completed — Course/Semester/Subject CRUD, code auto-gen, nested grids, duration validation, and redesigned AdminLayout wrapper added |
+| 18 Mar 2025 | Security fixes — JWT cookie, 403 redirect, devmode disabled |
+| 18 Mar 2025 | Slice 4 complete — Student + Teacher Management, Excel import with preview, soft delete, auto-generated passwords |
+| 20 Mar 2025 | Slice 5 complete — Academic Calendar + Holiday Management, Excel import with preview, multi-format date parser, layout fixes |
 
 ---
 
@@ -183,3 +280,24 @@ Using Neon.tech cloud PostgreSQL — no local PostgreSQL needed. Connection via 
 
 ### Login
 Admin uses PRN + password. Teachers and students use PRN (10 digits) + password. All users must have a PRN.
+
+### Default password format
+firstName + "@" + last4DigitsOfPRN
+Example: Rohan Sharma PRN 2212345001 → Rohan@5001
+Always use prn.substring(prn.length() - 4)
+
+### Batch year format
+202627 = academic year 2026-27
+month >= 6 → currentYear*100 + (currentYear+1)%100
+month < 6  → (currentYear-1)*100 + currentYear%100
+
+### Excel import rules (apply to all imports)
+- Read headers by name not position
+- Case-insensitive + ignore underscores/hyphens/spaces
+- Skip rows where all key fields are blank
+- Two-step preview → confirm flow
+- Only valid rows inserted on confirm
+
+### Next migration number
+Next migration number: V4
+Never modify V1, V2, V3.

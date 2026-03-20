@@ -47,8 +47,14 @@ public class AdminDashboardView extends VerticalLayout {
         
         Button teachersBtn = new Button("Manage Teachers", e -> UI.getCurrent().navigate(TeacherManagementView.class));
         teachersBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button calendarBtn = new Button("Academic Calendar", e -> UI.getCurrent().navigate(AcademicCalendarView.class));
+        calendarBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        Button holidaysBtn = new Button("Manage Holidays", e -> UI.getCurrent().navigate(HolidayManagementView.class));
+        holidaysBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
         
-        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn);
+        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn, calendarBtn, holidaysBtn);
 
         add(title, statCards, navigation);
     }
