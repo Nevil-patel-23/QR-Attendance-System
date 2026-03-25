@@ -39,6 +39,7 @@ public class AdminService {
     private final HolidayRepository holidayRepository;
     private final TeacherSubjectAllocationRepository teacherSubjectAllocationRepository;
     private final TimetableSlotRepository timetableSlotRepository;
+    private final StudentSubjectEnrollmentRepository enrollmentRepository;
 
     // ===== FACULTY MANAGEMENT =====
 
@@ -1754,6 +1755,112 @@ public class AdminService {
                 .endTime(slot.getEndTime())
                 .room(slot.getRoom())
                 .effectiveFrom(slot.getEffectiveFrom())
+                .build();
+    }
+
+    // ===== ELECTIVE ENROLLMENT MANAGEMENT =====
+
+    @Transactional(readOnly = true)
+    public List<SubjectResponse> getElectiveSubjectsBySemester(UUID semesterId) {
+        return subjectRepository.findBySemesterSemesterIdAndType(semesterId, SubjectType.ELECTIVE)
+                .stream()
+                .map(this::mapToSubjectResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentResponse> getActiveStudentsBySemester(UUID semesterId) {
+        return studentRepository.findByCurrentSemesterSemesterIdAndUserIsActiveTrue(semesterId)
+                .stream()
+                .map(this::mapToStudentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentResponse> getStudentsBySemesterAndBatchYear(UUID semesterId, Integer batchYear) {
+        return studentRepository.findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(semesterId, batchYear)
+                .stream()
+                .map(this::mapToStudentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getEnrollmentsBySubject(UUID subjectId, String academicYear) {
+        return enrollmentRepository.findBySubjectSubjectIdAndAcademicYear(subjectId, academicYear)
+                .stream()
+                .map(this::mapToEnrollmentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<EnrollmentResponse> getEnrollmentsByStudent(UUID studentId, String academicYear) {
+        return enrollmentRepository.findByStudentStudentIdAndAcademicYear(studentId, academicYear)
+                .stream()
+                .map(this::mapToEnrollmentResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public EnrollmentResponse createEnrollment(CreateEnrollmentRequest request) {
+        Subject subject = subjectRepository.findById(request.getSubjectId())
+                .orElseThrow(() -> new ResourceNotFoundException("Subject not found"));
+
+        if (subject.getType() != SubjectType.ELECTIVE) {
+            throw new ValidationException(
+                    "Cannot enroll in a compulsory subject. Only elective subjects require enrollment.");
+        }
+
+        Student student = studentRepository.findById(request.getStudentId())
+                .orElseThrow(() -> new ResourceNotFoundException("Student not found"));
+
+        if (enrollmentRepository.existsByStudentStudentIdAndSubjectSubjectIdAndAcademicYear(
+                student.getStudentId(), subject.getSubjectId(), request.getAcademicYear())) {
+            throw new ValidationException(
+                    "Student is already enrolled in this subject for academic year " + request.getAcademicYear());
+        }
+
+        // One elective per semester per academic year
+        UUID semesterId = subject.getSemester().getSemesterId();
+        if (enrollmentRepository.existsByStudentStudentIdAndSubjectSemesterSemesterIdAndAcademicYear(
+                student.getStudentId(), semesterId, request.getAcademicYear())) {
+            throw new ValidationException(
+                    "Student is already enrolled in an elective subject for this semester. " +
+                    "A student can only take one elective per semester.");
+        }
+
+        StudentSubjectEnrollment enrollment = StudentSubjectEnrollment.builder()
+                .student(student)
+                .subject(subject)
+                .academicYear(request.getAcademicYear())
+                .build();
+
+        return mapToEnrollmentResponse(enrollmentRepository.save(enrollment));
+    }
+
+    @Transactional
+    public void deleteEnrollment(UUID enrollmentId) {
+        StudentSubjectEnrollment enrollment = enrollmentRepository.findById(enrollmentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Enrollment not found"));
+        enrollmentRepository.delete(enrollment);
+    }
+
+    @Transactional(readOnly = true)
+    public long getEnrollmentCount(UUID subjectId, String academicYear) {
+        return enrollmentRepository.countBySubjectSubjectIdAndAcademicYear(subjectId, academicYear);
+    }
+
+    private EnrollmentResponse mapToEnrollmentResponse(StudentSubjectEnrollment enrollment) {
+        Student student = enrollment.getStudent();
+        Subject subject = enrollment.getSubject();
+        return EnrollmentResponse.builder()
+                .enrollmentId(enrollment.getEnrollmentId())
+                .studentName(student.getFirstName() + " " + student.getLastName())
+                .studentPrn(student.getPrn())
+                .subjectName(subject.getName())
+                .subjectCode(subject.getCode())
+                .subjectType(subject.getType())
+                .academicYear(enrollment.getAcademicYear())
+                .enrolledAt(enrollment.getEnrolledAt())
                 .build();
     }
 }

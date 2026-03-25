@@ -13,4 +13,5 @@ public interface TeacherRepository extends JpaRepository<Teacher, UUID> {
     List<Teacher> findByFacultyFacultyId(UUID facultyId);
     boolean existsByPrn(String prn);
     Optional<Teacher> findByPrn(String prn);
+    Optional<Teacher> findByUserUserId(UUID userId);
 }

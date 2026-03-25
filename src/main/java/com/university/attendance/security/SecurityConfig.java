@@ -31,6 +31,7 @@ public class SecurityConfig {
                 .requestMatchers(
                     "/",
                     "/login",
+                    "/attend",
                     "/VAADIN/**",
                     "/frontend/**",
                     "/connect/**",

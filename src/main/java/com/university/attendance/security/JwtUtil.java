@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.UUID;
 
 @Component
 public class JwtUtil {
@@ -52,6 +53,10 @@ public class JwtUtil {
 
     public String extractRole(String token) {
         return getClaims(token).get("role", String.class);
+    }
+
+    public UUID extractUserId(String token) {
+        return java.util.UUID.fromString(getClaims(token).get("userId", String.class));
     }
 
     private Claims getClaims(String token) {

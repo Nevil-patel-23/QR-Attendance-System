@@ -2,6 +2,7 @@ package com.university.attendance.controller;
 
 import com.university.attendance.dto.request.CreateAcademicCalendarRequest;
 import com.university.attendance.dto.request.CreateCourseRequest;
+import com.university.attendance.dto.request.CreateEnrollmentRequest;
 import com.university.attendance.dto.request.CreateFacultyRequest;
 import com.university.attendance.dto.request.CreateHolidayRequest;
 import com.university.attendance.dto.request.CreateStudentRequest;
@@ -309,5 +310,37 @@ public class AdminController {
     @PostMapping("/timetable/confirm-import")
     public ResponseEntity<ExcelImportResponse> confirmTimetableImport(@RequestBody List<TimetableImportRow> previewRows) {
         return ResponseEntity.ok(adminService.confirmTimetableImport(previewRows));
+    }
+
+    // ===== ELECTIVE ENROLLMENT =====
+
+    @GetMapping("/subjects/semester/{semesterId}/electives")
+    public ResponseEntity<List<SubjectResponse>> getElectiveSubjectsBySemester(@PathVariable UUID semesterId) {
+        return ResponseEntity.ok(adminService.getElectiveSubjectsBySemester(semesterId));
+    }
+
+    @GetMapping("/enrollments/subject/{subjectId}")
+    public ResponseEntity<List<EnrollmentResponse>> getEnrollmentsBySubject(
+            @PathVariable UUID subjectId,
+            @RequestParam String academicYear) {
+        return ResponseEntity.ok(adminService.getEnrollmentsBySubject(subjectId, academicYear));
+    }
+
+    @GetMapping("/enrollments/student/{studentId}")
+    public ResponseEntity<List<EnrollmentResponse>> getEnrollmentsByStudent(
+            @PathVariable UUID studentId,
+            @RequestParam String academicYear) {
+        return ResponseEntity.ok(adminService.getEnrollmentsByStudent(studentId, academicYear));
+    }
+
+    @PostMapping("/enrollments")
+    public ResponseEntity<EnrollmentResponse> createEnrollment(@Valid @RequestBody CreateEnrollmentRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(adminService.createEnrollment(request));
+    }
+
+    @DeleteMapping("/enrollments/{id}")
+    public ResponseEntity<Void> deleteEnrollment(@PathVariable UUID id) {
+        adminService.deleteEnrollment(id);
+        return ResponseEntity.noContent().build();
     }
 }

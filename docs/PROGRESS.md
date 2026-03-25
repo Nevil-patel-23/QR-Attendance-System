@@ -6,7 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 6 complete, ready for Slice 7
+Phase: Slice 8 complete — Elective Enrollment done.
+Ready for Slice 9.
 
 ---
 
@@ -189,6 +190,28 @@ Phase: Slice 6 complete, ready for Slice 7
 - [x] Excel import with preview.
 - [x] Timezone fixed to Asia/Kolkata.
 
+### Vertical Slice 7 — Live QR Generation (T1, T2) ✅
+- [x] Teacher Dashboard shows today's lectures with
+      Generate QR button active only within lecture
+      window (15 min before, 30 min after).
+- [x] Live QR screen shows QR code, countdown timer,
+      scan counter auto-refreshing every 5 seconds.
+- [x] QR regeneration deactivates previous session.
+- [x] Background job marks absent students after expiry.
+- [x] AttendanceResultView placeholder exists at /attend.
+- [x] Pending token redirect deferred to Slice 9.
+
+### Vertical Slice 8 — Elective Enrollment Management (A9) ✅
+- [x] StudentSubjectEnrollmentRepository with semester
+      and batch year filtering.
+- [x] AdminService logic with one-elective-per-semester
+      and duplicate validations.
+- [x] AdminController endpoints for elective enrollments.
+- [x] ElectiveEnrollmentView with a two-panel
+      master-detail layout.
+- [x] batchYearFilter integer field with custom 101 step
+      logic to handle academic year format (e.g., 202526).
+
 ---
 
 ## In Progress 🔄
@@ -199,13 +222,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Vertical Slice 7 — Live QR Generation (T1, T2)
+Slice 9 — QR Scanner + Attendance (ST2)
 
 ---
 
 ## Not Started 📋
-- [ ] Slice 7 — Live QR Generation (T1, T2)
-- [ ] Slice 8 — Elective Enrollment (A9)
+
 - [ ] Slice 9 — QR Scanner + Attendance (ST2)
 - [ ] Slice 10 — Student Dashboard (ST1, ST3, ST4, ST5)
 - [ ] Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
@@ -242,6 +264,8 @@ Vertical Slice 7 — Live QR Generation (T1, T2)
 | 18 Mar 2025 | Slice 4 complete — Student + Teacher Management, Excel import with preview, soft delete, auto-generated passwords |
 | 20 Mar 2025 | Slice 5 complete — Academic Calendar + Holiday Management, Excel import with preview, multi-format date parser, layout fixes |
 | 21 Mar 2025 | Vertical Slice 6 complete — Teacher Allocation + Timetable Management |
+| 25 Mar 2026 | Slice 7 complete — QR generation, countdown timer, background ABSENT job, session deactivation on regeneration all working. Pending token redirect deferred to Slice 9. |
+| 25 Mar 2026 | Slice 8 complete — Elective Enrollment Management (A9) built with strict validation rules and custom Vaadin batch year filtering. |
 
 ---
 

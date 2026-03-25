@@ -16,8 +16,13 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinService;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
+import com.vaadin.flow.router.QueryParameters;
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+
+import java.util.List;
+import java.util.Map;
 
 @Route("")
 @PageTitle("Login | QR Attendance")
@@ -85,18 +90,44 @@ public class LoginView extends VerticalLayout {
                 jwtCookie.setSecure(false);  // set true in production
                 HttpServletResponse httpResponse = (HttpServletResponse) VaadinService.getCurrentResponse();
                 httpResponse.addCookie(jwtCookie);
-                
-                // Redirect based on role
-                String role = response.getRole();
-                if ("ADMIN".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("admin");
-                } else if ("TEACHER".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("teacher");
-                } else if ("STUDENT".equalsIgnoreCase(role)) {
-                    UI.getCurrent().navigate("student");
+
+                // Check for pending_token cookie (set by AttendanceResultView when
+                // a student scans a QR but wasn't logged in)
+                HttpServletRequest httpRequest = (HttpServletRequest) VaadinService.getCurrentRequest();
+                String pendingToken = null;
+                Cookie[] cookies = httpRequest.getCookies();
+                if (cookies != null) {
+                    for (Cookie cookie : cookies) {
+                        if ("pending_token".equals(cookie.getName())) {
+                            pendingToken = cookie.getValue();
+                            // Clear the cookie — it's been consumed
+                            Cookie clearCookie = new Cookie("pending_token", "");
+                            clearCookie.setMaxAge(0);
+                            clearCookie.setPath("/");
+                            clearCookie.setHttpOnly(true);
+                            httpResponse.addCookie(clearCookie);
+                            break;
+                        }
+                    }
+                }
+
+                if (pendingToken != null && !pendingToken.isEmpty()) {
+                    // Redirect back to the scan page with the token
+                    QueryParameters qp = new QueryParameters(Map.of("token", List.of(pendingToken)));
+                    UI.getCurrent().navigate("attend", qp);
                 } else {
-                    errorMessage.setText("Unknown role assigned.");
-                    errorMessage.setVisible(true);
+                    // Normal role-based redirect
+                    String role = response.getRole();
+                    if ("ADMIN".equalsIgnoreCase(role)) {
+                        UI.getCurrent().navigate("admin");
+                    } else if ("TEACHER".equalsIgnoreCase(role)) {
+                        UI.getCurrent().navigate("teacher");
+                    } else if ("STUDENT".equalsIgnoreCase(role)) {
+                        UI.getCurrent().navigate("student");
+                    } else {
+                        errorMessage.setText("Unknown role assigned.");
+                        errorMessage.setVisible(true);
+                    }
                 }
 
             } catch (Exception ex) {

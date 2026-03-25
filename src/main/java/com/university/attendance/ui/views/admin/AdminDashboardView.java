@@ -57,7 +57,10 @@ public class AdminDashboardView extends VerticalLayout {
         Button timetableBtn = new Button("Timetable Builder", e -> UI.getCurrent().navigate(TimetableBuilderView.class));
         timetableBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn, calendarBtn, holidaysBtn, timetableBtn);
+        Button enrollmentBtn = new Button("Elective Enrollment", e -> UI.getCurrent().navigate(ElectiveEnrollmentView.class));
+        enrollmentBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn, calendarBtn, holidaysBtn, timetableBtn, enrollmentBtn);
 
         add(title, statCards, navigation);
     }

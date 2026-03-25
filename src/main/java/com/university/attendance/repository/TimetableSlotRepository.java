@@ -20,4 +20,7 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, UU
 
     boolean existsByAllocationTeacherTeacherIdAndDayOfWeekAndStartTimeLessThanAndEndTimeGreaterThanAndEffectiveToIsNull(
             UUID teacherId, DayOfWeek dayOfWeek, LocalTime endTime, LocalTime startTime);
+
+    List<TimetableSlot> findByDayOfWeekAndAllocationTeacherTeacherIdAndEffectiveToIsNull(
+            DayOfWeek dayOfWeek, UUID teacherId);
 }
