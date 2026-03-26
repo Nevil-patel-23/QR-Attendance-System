@@ -93,41 +93,47 @@ public class LoginView extends VerticalLayout {
 
                 // Check for pending_token cookie (set by AttendanceResultView when
                 // a student scans a QR but wasn't logged in)
-                HttpServletRequest httpRequest = (HttpServletRequest) VaadinService.getCurrentRequest();
-                String pendingToken = null;
-                Cookie[] cookies = httpRequest.getCookies();
-                if (cookies != null) {
-                    for (Cookie cookie : cookies) {
-                        if ("pending_token".equals(cookie.getName())) {
-                            pendingToken = cookie.getValue();
-                            // Clear the cookie — it's been consumed
-                            Cookie clearCookie = new Cookie("pending_token", "");
-                            clearCookie.setMaxAge(0);
-                            clearCookie.setPath("/");
-                            clearCookie.setHttpOnly(true);
-                            httpResponse.addCookie(clearCookie);
-                            break;
+                // IMPORTANT: Only redirect to /attend for STUDENT role.
+                // Teachers/admins must always reach their dashboards.
+                String role = response.getRole();
+
+                if ("STUDENT".equalsIgnoreCase(role)) {
+                    HttpServletRequest httpRequest = (HttpServletRequest) VaadinService.getCurrentRequest();
+                    String pendingToken = null;
+                    Cookie[] cookies = httpRequest.getCookies();
+                    if (cookies != null) {
+                        for (Cookie cookie : cookies) {
+                            if ("pending_token".equals(cookie.getName())) {
+                                pendingToken = cookie.getValue();
+                                break;
+                            }
                         }
                     }
-                }
 
-                if (pendingToken != null && !pendingToken.isEmpty()) {
-                    // Redirect back to the scan page with the token
-                    QueryParameters qp = new QueryParameters(Map.of("token", List.of(pendingToken)));
-                    UI.getCurrent().navigate("attend", qp);
-                } else {
-                    // Normal role-based redirect
-                    String role = response.getRole();
-                    if ("ADMIN".equalsIgnoreCase(role)) {
-                        UI.getCurrent().navigate("admin");
-                    } else if ("TEACHER".equalsIgnoreCase(role)) {
-                        UI.getCurrent().navigate("teacher");
-                    } else if ("STUDENT".equalsIgnoreCase(role)) {
-                        UI.getCurrent().navigate("student");
+                    if (pendingToken != null && !pendingToken.isEmpty()) {
+                        // Clear the cookie — it's been consumed
+                        Cookie clearCookie = new Cookie("pending_token", "");
+                        clearCookie.setMaxAge(0);
+                        clearCookie.setPath("/");
+                        clearCookie.setHttpOnly(true);
+                        httpResponse.addCookie(clearCookie);
+
+                        // Redirect back to the scan page with the token
+                        // Use a hard browser redirect instead of Vaadin router to ensure context reloads
+                        UI.getCurrent().getPage().setLocation("/attend?token=" + pendingToken);
                     } else {
-                        errorMessage.setText("Unknown role assigned.");
-                        errorMessage.setVisible(true);
+                        UI.getCurrent().getPage().setLocation("student");
                     }
+                } else if ("ADMIN".equalsIgnoreCase(role)) {
+                    // Always clear any stale pending_token for non-students
+                    clearPendingTokenCookie(httpResponse);
+                    UI.getCurrent().getPage().setLocation("admin");
+                } else if ("TEACHER".equalsIgnoreCase(role)) {
+                    clearPendingTokenCookie(httpResponse);
+                    UI.getCurrent().getPage().setLocation("teacher");
+                } else {
+                    errorMessage.setText("Unknown role assigned.");
+                    errorMessage.setVisible(true);
                 }
 
             } catch (Exception ex) {
@@ -149,5 +155,16 @@ public class LoginView extends VerticalLayout {
         loginCard.setWidth("100%");
 
         add(loginCard);
+    }
+
+    /**
+     * Clear any stale pending_token cookie (e.g. for non-student roles).
+     */
+    private void clearPendingTokenCookie(HttpServletResponse httpResponse) {
+        Cookie clearCookie = new Cookie("pending_token", "");
+        clearCookie.setMaxAge(0);
+        clearCookie.setPath("/");
+        clearCookie.setHttpOnly(true);
+        httpResponse.addCookie(clearCookie);
     }
 }

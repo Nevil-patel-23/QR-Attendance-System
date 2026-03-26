@@ -6,8 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 8 complete — Elective Enrollment done.
-Ready for Slice 9.
+Phase: Slice 9 complete — Core QR validation engine and routing done.
+Ready for Slice 10.
 
 ---
 
@@ -212,6 +212,12 @@ Ready for Slice 9.
 - [x] batchYearFilter integer field with custom 101 step
       logic to handle academic year format (e.g., 202526).
 
+### Vertical Slice 9 — QR Scanner + Attendance (ST2) ✅
+- [x] AttendanceService with the strict 5-check validation chain (including dynamic elective year calculation).
+- [x] Safe DTO return pattern (AttendanceSuccessResponse) to eliminate Hibernate lazy-loading errors.
+- [x] AttendanceResultView handling URL parameters and Green/Red UI states.
+- [x] LoginView updated with hard browser redirects (setLocation) to securely handle the pending_attendance_token and isolate role-based routing.
+
 ---
 
 ## In Progress 🔄
@@ -222,13 +228,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Slice 9 — QR Scanner + Attendance (ST2)
+Slice 10 — Student Dashboard & Views (ST1, ST3, ST4, ST5)
 
 ---
 
 ## Not Started 📋
 
-- [ ] Slice 9 — QR Scanner + Attendance (ST2)
 - [ ] Slice 10 — Student Dashboard (ST1, ST3, ST4, ST5)
 - [ ] Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 - [ ] Slice 12 — Attendance Overview Report (A12)
@@ -266,6 +271,7 @@ Slice 9 — QR Scanner + Attendance (ST2)
 | 21 Mar 2025 | Vertical Slice 6 complete — Teacher Allocation + Timetable Management |
 | 25 Mar 2026 | Slice 7 complete — QR generation, countdown timer, background ABSENT job, session deactivation on regeneration all working. Pending token redirect deferred to Slice 9. |
 | 25 Mar 2026 | Slice 8 complete — Elective Enrollment Management (A9) built with strict validation rules and custom Vaadin batch year filtering. |
+| 26 Mar 2026 | Slice 9 complete — Live QR Scanner built, 5-check validation tested via mobile, routing race conditions fixed. |
 
 ---
 
