@@ -53,4 +53,11 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
      * Used by the @Scheduled background job to process expired sessions.
      */
     List<AttendanceSession> findByIsActiveTrueAndExpiresAtBefore(LocalDateTime now);
+
+    /**
+     * Count completed sessions for a subject within a date range.
+     * Used to calculate total sessions for attendance percentage.
+     */
+    long countBySubjectSubjectIdAndIsActiveFalseAndSessionDateBetween(
+            UUID subjectId, LocalDate startDate, LocalDate endDate);
 }

@@ -58,6 +58,13 @@ public class TeacherDashboardView extends VerticalLayout {
         this.jwtUtil = jwtUtil;
         this.qrService = qrService;
 
+        // Programmatic role guard — Vaadin @RolesAllowed is not enforced with stateless JWT
+        String role = resolveRole();
+        if (!"TEACHER".equalsIgnoreCase(role)) {
+            UI.getCurrent().getPage().setLocation("/");
+            return;
+        }
+
         setSizeFull();
         setPadding(true);
         setSpacing(true);
@@ -173,5 +180,21 @@ public class TeacherDashboardView extends VerticalLayout {
             }
         }
         throw new RuntimeException("Not authenticated");
+    }
+
+    /**
+     * Resolve the role from the JWT cookie for programmatic access control.
+     */
+    private String resolveRole() {
+        HttpServletRequest httpRequest = (HttpServletRequest) VaadinRequest.getCurrent();
+        Cookie[] cookies = httpRequest.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("jwt".equals(cookie.getName())) {
+                    return jwtUtil.extractRole(cookie.getValue());
+                }
+            }
+        }
+        return "";
     }
 }

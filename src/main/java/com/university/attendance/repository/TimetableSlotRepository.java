@@ -23,4 +23,10 @@ public interface TimetableSlotRepository extends JpaRepository<TimetableSlot, UU
 
     List<TimetableSlot> findByDayOfWeekAndAllocationTeacherTeacherIdAndEffectiveToIsNull(
             DayOfWeek dayOfWeek, UUID teacherId);
+
+    /**
+     * Find active slots for a specific subject.
+     * Used by student timetable to build schedule from subject list.
+     */
+    List<TimetableSlot> findByAllocationSubjectSubjectIdAndEffectiveToIsNull(UUID subjectId);
 }

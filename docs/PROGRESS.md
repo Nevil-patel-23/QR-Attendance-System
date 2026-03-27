@@ -6,8 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 9 complete — Core QR validation engine and routing done.
-Ready for Slice 10.
+Phase: Slice 10 complete — Student Dashboard + Security Fixes done.
+Ready for Slice 11.
 
 ---
 
@@ -218,6 +218,14 @@ Ready for Slice 10.
 - [x] AttendanceResultView handling URL parameters and Green/Red UI states.
 - [x] LoginView updated with hard browser redirects (setLocation) to securely handle the pending_attendance_token and isolate role-based routing.
 
+### Vertical Slice 10 — Student Dashboard & Views (ST1, ST3, ST4, ST5) ✅
+- [x] 5 Response DTOs and 3 Repository aggregation queries.
+- [x] StudentService and StudentController completely implemented based on JWT PRN.
+- [x] StudentDashboardView with Profile, Attendance cards, and Today's slots.
+- [x] AttendanceDetailView, StudentTimetableView, and MySubjectsView completed.
+- [x] Security Fix: Cross-role access blocked via BeforeEnterObserver in Layouts.
+- [x] Security Fix: Secure logout implementation utilizing backend `/api/v1/auth/logout`.
+
 ---
 
 ## In Progress 🔄
@@ -228,13 +236,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Slice 10 — Student Dashboard & Views (ST1, ST3, ST4, ST5)
+Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 
 ---
 
 ## Not Started 📋
 
-- [ ] Slice 10 — Student Dashboard (ST1, ST3, ST4, ST5)
 - [ ] Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 - [ ] Slice 12 — Attendance Overview Report (A12)
 - [ ] Slice 13 — Profile Screen (S2)
@@ -272,6 +279,7 @@ Slice 10 — Student Dashboard & Views (ST1, ST3, ST4, ST5)
 | 25 Mar 2026 | Slice 7 complete — QR generation, countdown timer, background ABSENT job, session deactivation on regeneration all working. Pending token redirect deferred to Slice 9. |
 | 25 Mar 2026 | Slice 8 complete — Elective Enrollment Management (A9) built with strict validation rules and custom Vaadin batch year filtering. |
 | 26 Mar 2026 | Slice 9 complete — Live QR Scanner built, 5-check validation tested via mobile, routing race conditions fixed. |
+| 27 Mar 2026 | Slice 10 complete — Student Dashboard + Views. Applied 5 UI/bug fixes. Applied 2 Critical Security Patches (Cross-Role and Secure Logout). |
 
 ---
 
@@ -339,3 +347,14 @@ Never modify V1, V2, V3.
 
 ### Timetable entry flow
 One form → get-or-create allocation → create slot → effectiveFrom auto from calendar → double booking is hard block → delete slot cleans up orphan allocation automatically
+
+---
+
+## Strict Architectural Rules for Future Slices
+
+**Rule 1 (Cross-Role Security)**: Whenever a new Layout file is created (e.g., TeacherLayout.java in Slice 11), it MUST implement `BeforeEnterObserver`. It must check the `SecurityContextHolder` and strictly enforce its specific role (e.g., `ROLE_TEACHER`). Unauthorized roles must be forwarded to `/admin` or `/student` respectively, or `/login` if unauthenticated.
+
+**Rule 2 (Secure Logout)**: Whenever a logout button is implemented in a Vaadin UI layout, it MUST NOT use standard Vaadin navigation. It must explicitly execute this JavaScript to clear the HTTP-only cookie before redirecting:
+```javascript
+UI.getCurrent().getPage().executeJs("fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/login'; })");
+```

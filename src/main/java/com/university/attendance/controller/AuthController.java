@@ -3,6 +3,8 @@ package com.university.attendance.controller;
 import com.university.attendance.dto.request.LoginRequest;
 import com.university.attendance.dto.response.AuthResponse;
 import com.university.attendance.service.AuthService;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -23,4 +25,15 @@ public class AuthController {
         AuthResponse response = authService.login(request);
         return ResponseEntity.ok(response);
     }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
+        Cookie jwtCookie = new Cookie("jwt", "");
+        jwtCookie.setMaxAge(0);
+        jwtCookie.setPath("/");
+        jwtCookie.setHttpOnly(true);
+        response.addCookie(jwtCookie);
+        return ResponseEntity.ok().build();
+    }
 }
+
