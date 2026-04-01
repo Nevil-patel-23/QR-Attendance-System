@@ -6,8 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 11 complete — Teacher Reports + Timetable done.
-Ready for Slice 12.
+Phase: Slice 12 complete — Admin Attendance Overview Report done.
+Ready for Slice 13.
 
 ---
 
@@ -237,6 +237,21 @@ Ready for Slice 12.
 - [x] Fixed `LazyInitializationException` using unproxied-entity pattern in service layer.
 - [x] Navigation: Removed all ad-hoc "Back" buttons in favor of standardized top-bar RouterLinks.
 
+### Vertical Slice 12 — Admin Attendance Overview Report (A12) ✅
+- [x] 3 Response DTOs created: SubjectAttendanceSummary, StudentAttendanceMatrixRow, AttendanceMatrixResponse.
+- [x] AttendanceSessionRepository — added `findBySemesterSemesterIdAndIsActiveFalseAndSessionDateBetween` for completed-session queries.
+- [x] StudentRepository — added batch-year + PRN-ordered query: `findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrueOrderByPrnAsc`.
+- [x] AdminService `getAttendanceMatrix()` — bulk-fetches sessions, records, and enrollments to avoid N+1. Accepts `academicYear` string from controller, converts to integer for `batch_year` DB query.
+- [x] AdminController matrix endpoint resolves `academicYear` and default dates from `AcademicCalendar`; passes all 4 params to service.
+- [x] AdminController calendar lookup endpoint added (`/attendance/calendar`) for UI date-picker sync.
+- [x] AttendanceOverviewView — cascading Faculty → Course → Semester dropdowns, auto-populating date pickers from academic calendar on semester selection.
+- [x] Matrix grid with frozen PRN/Name columns, dynamic compulsory + elective subject columns, color-coded percentage badges (green ≥75%, red <75%, gray "—" for not enrolled).
+- [x] Excel export with Apache POI: green/red/gray cell fills, bold headers, auto-sized columns, merged group header rows for Compulsory/Elective.
+- [x] Grid and Excel headers use Subject **Name** (not code) for readability.
+- [x] Batch-year filtering fix: `batch_year` in DB stores the full academic year as integer (e.g., `202526`), not the admission year. Service uses `Integer.parseInt(academicYear)` directly.
+- [x] Empty-state handling: shows "No students found for Batch [Year] in this Semester" notification; grid and export hidden.
+- [x] AdminDashboardView — Attendance Overview navigation button added.
+
 ---
 
 ## In Progress 🔄
@@ -247,13 +262,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Slice 12 — Attendance Overview Report (A12)
+Slice 13 — Profile Screen (S2)
 
 ---
 
 ## Not Started 📋
 
-- [ ] Slice 12 — Attendance Overview Report (A12)
 - [ ] Slice 13 — Profile Screen (S2)
 - [ ] Step 10 — Testing
 
@@ -291,6 +305,7 @@ Slice 12 — Attendance Overview Report (A12)
 | 26 Mar 2026 | Slice 9 complete — Live QR Scanner built, 5-check validation tested via mobile, routing race conditions fixed. |
 | 27 Mar 2026 | Slice 10 complete — Student Dashboard + Views. Applied 5 UI/bug fixes. Applied 2 Critical Security Patches (Cross-Role and Secure Logout). |
 | 31 Mar 2026 | Slice 11 complete — Teacher Reports + Timetable. Implemented dynamic subject reports, unproxied entity security pattern, and full UI standardization. |
+| 01 Apr 2026 | Slice 12 complete — Admin Attendance Overview Report. Matrix grid with dynamic subject columns, Excel export with colored fills, cascading dropdowns with calendar-synced date pickers. Fixed critical batch_year filtering bug (DB stores 202526, not 2025). |
 
 ---
 
@@ -344,6 +359,8 @@ Always use prn.substring(prn.length() - 4)
 202627 = academic year 2026-27
 month >= 6 → currentYear*100 + (currentYear+1)%100
 month < 6  → (currentYear-1)*100 + currentYear%100
+Critical: DB `batch_year` column stores this integer (e.g., 202526), NOT the admission year (e.g., 2025).
+Always use `Integer.parseInt(academicYear)` when querying students — never derive a separate "admission year".
 
 ### Excel import rules (apply to all imports)
 - Read headers by name not position
