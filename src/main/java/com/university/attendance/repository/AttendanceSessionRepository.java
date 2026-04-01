@@ -60,4 +60,18 @@ public interface AttendanceSessionRepository extends JpaRepository<AttendanceSes
      */
     long countBySubjectSubjectIdAndIsActiveFalseAndSessionDateBetween(
             UUID subjectId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Find all completed sessions for a subject within a date range, ordered by date.
+     * Used for teacher attendance reports (T3).
+     */
+    List<AttendanceSession> findBySubjectSubjectIdAndIsActiveFalseAndSessionDateBetweenOrderBySessionDateAsc(
+            UUID subjectId, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * Find all completed sessions for an entire semester within a date range.
+     * Used by admin attendance matrix report to bulk-fetch all sessions at once.
+     */
+    List<AttendanceSession> findBySemesterSemesterIdAndIsActiveFalseAndSessionDateBetween(
+            UUID semesterId, LocalDate startDate, LocalDate endDate);
 }

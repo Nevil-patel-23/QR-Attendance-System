@@ -24,6 +24,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.*;
 import com.vaadin.flow.server.StreamResource;
 import com.vaadin.flow.server.VaadinRequest;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -53,8 +54,9 @@ import java.util.concurrent.TimeUnit;
  * - Live scan counter ("X / Y scanned") refreshed every 5 seconds
  * - "Back to Dashboard" button
  */
-@Route("teacher/live-qr")
-@PageTitle("Live QR | QR Attendance")
+@Route(value = "teacher/live-qr", layout = TeacherLayout.class)
+@PageTitle("Live QR")
+@RolesAllowed("TEACHER")
 public class LiveQrView extends VerticalLayout implements HasUrlParameter<String>, BeforeEnterObserver {
 
     private final QrService qrService;
@@ -156,12 +158,6 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
     private void buildUI() {
         removeAll();
 
-        // Back button
-        Button backButton = new Button("Back to Dashboard", new Icon(VaadinIcon.ARROW_LEFT), e -> {
-            UI.getCurrent().navigate("teacher");
-        });
-        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
         // Subject info
         subjectLabel.setText(session.getSubjectName() + " (" + session.getSubjectCode() + ")");
         subjectLabel.getStyle().set("margin", "0");
@@ -214,10 +210,6 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
         });
         regenerateButton.addThemeVariants(ButtonVariant.LUMO_CONTRAST);
 
-        // Layout
-        HorizontalLayout topBar = new HorizontalLayout(backButton);
-        topBar.setWidthFull();
-
         VerticalLayout content = new VerticalLayout(
                 subjectLabel,
                 semesterLabel,
@@ -231,7 +223,7 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
         content.setSpacing(true);
         content.setPadding(true);
 
-        add(topBar, content);
+        add(content);
     }
 
     /**
@@ -316,15 +308,10 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
     private void showError(String message) {
         removeAll();
 
-        Button backButton = new Button("Back to Dashboard", new Icon(VaadinIcon.ARROW_LEFT), e -> {
-            UI.getCurrent().navigate("teacher");
-        });
-        backButton.addThemeVariants(ButtonVariant.LUMO_TERTIARY);
-
         Span error = new Span(message);
         error.getStyle().set("color", "var(--lumo-error-text-color)");
         error.getStyle().set("font-size", "var(--lumo-font-size-l)");
 
-        add(backButton, error);
+        add(error);
     }
 }

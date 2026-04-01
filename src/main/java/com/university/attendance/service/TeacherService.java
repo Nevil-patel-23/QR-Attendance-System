@@ -10,9 +10,10 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
+import com.university.attendance.exception.ValidationException;
+import com.university.attendance.dto.response.*;
 
 /**
  * Service layer for teacher-specific operations.
@@ -35,15 +36,42 @@ public class TeacherService {
     private final TimetableSlotRepository slotRepo;
     private final AttendanceSessionRepository sessionRepo;
     private final HolidayRepository holidayRepo;
+    private final TeacherSubjectAllocationRepository allocationRepository;
+    private final AttendanceRecordRepository recordRepository;
+    private final StudentSubjectEnrollmentRepository enrollmentRepository;
+    private final StudentRepository studentRepository;
 
     /**
      * Resolve a Teacher entity from the JWT's userId claim.
      * The JWT stores user_id, not teacher_id, so we need this lookup.
      */
+    /**
+     * Resolve a Teacher entity from the JWT's userId claim, returning an unproxied object
+     * containing only simple strings to prevent LazyInitializationException in the UI layer.
+     */
     @Transactional(readOnly = true)
     public Teacher getTeacherByUserId(UUID userId) {
-        return teacherRepo.findByUserUserId(userId)
+        Teacher dbTeacher = teacherRepo.findByUserUserId(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Teacher profile not found for user"));
+        
+        Teacher unproxied = new Teacher();
+        unproxied.setTeacherId(dbTeacher.getTeacherId());
+        unproxied.setFirstName(dbTeacher.getFirstName());
+        unproxied.setLastName(dbTeacher.getLastName());
+        unproxied.setPrn(dbTeacher.getPrn());
+        unproxied.setDesignation(dbTeacher.getDesignation());
+        
+        User user = new User();
+        user.setIsActive(dbTeacher.getUser().getIsActive());
+        unproxied.setUser(user);
+        
+        if (dbTeacher.getFaculty() != null) {
+            Faculty f = new Faculty();
+            f.setName(dbTeacher.getFaculty().getName());
+            unproxied.setFaculty(f);
+        }
+        
+        return unproxied;
     }
 
     /**
@@ -132,5 +160,217 @@ public class TeacherService {
             case SATURDAY -> DayOfWeek.SAT;
             case SUNDAY -> null;
         };
+    }
+
+    private Teacher getTeacherByPrn(String prn) {
+        return teacherRepo.findByPrn(prn)
+                .orElseThrow(() -> new ValidationException("Teacher not found"));
+    }
+
+    private void validateTeacherAllocation(UUID teacherId, UUID subjectId) {
+        boolean isAllocated = allocationRepository.findByTeacherTeacherId(teacherId)
+                .stream()
+                .anyMatch(a -> a.getSubject().getSubjectId().equals(subjectId));
+        if (!isAllocated) {
+            throw new ValidationException("You are not authorized for this subject");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeacherSubjectResponse> getMySubjects(String prn) {
+        Teacher teacher = getTeacherByPrn(prn);
+        return allocationRepository.findByTeacherTeacherId(teacher.getTeacherId()).stream()
+                .map(allocation -> TeacherSubjectResponse.builder()
+                        .allocationId(allocation.getAllocationId())
+                        .subjectId(allocation.getSubject().getSubjectId())
+                        .subjectName(allocation.getSubject().getName())
+                        .subjectCode(allocation.getSubject().getCode())
+                        .semesterLabel(allocation.getSemester().getLabel())
+                        .courseCode(allocation.getSemester().getCourse().getCode())
+                        .academicYear(allocation.getAcademicYear())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<SessionSummaryResponse> getSessionsForSubject(String prn, UUID subjectId, LocalDate fromDate, LocalDate toDate) {
+        Teacher teacher = getTeacherByPrn(prn);
+        validateTeacherAllocation(teacher.getTeacherId(), subjectId);
+
+        List<AttendanceSession> sessions = sessionRepo.findBySubjectSubjectIdAndIsActiveFalseAndSessionDateBetweenOrderBySessionDateAsc(
+                subjectId, fromDate, toDate);
+
+        return sessions.stream().map(session -> {
+            long presentCount = sessionRepo.countBySessionIdAndStatus(session.getSessionId(), AttendanceStatus.PRESENT);
+            
+            TimetableSlot slot = session.getSlot();
+            
+            long totalEnrolled = 0;
+            if (session.getSubject().getType() == SubjectType.COMPULSORY) {
+                String academicYear = session.getAllocation().getAcademicYear();
+                Integer batchYear = Integer.parseInt(academicYear);
+                totalEnrolled = studentRepository.findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(
+                        session.getSemester().getSemesterId(), batchYear).size();
+            } else {
+                totalEnrolled = enrollmentRepository.findBySubjectSubjectIdAndAcademicYear(
+                        subjectId, session.getAllocation().getAcademicYear()).size();
+            }
+
+            return SessionSummaryResponse.builder()
+                    .sessionId(session.getSessionId())
+                    .sessionDate(session.getSessionDate())
+                    .startTime(slot != null ? slot.getStartTime() : null)
+                    .endTime(slot != null ? slot.getEndTime() : null)
+                    .subjectName(session.getSubject().getName())
+                    .subjectCode(session.getSubject().getCode())
+                    .presentCount(presentCount)
+                    .totalEnrolled(totalEnrolled)
+                    .build();
+        }).collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<StudentAttendanceRowResponse> getAttendanceBySubject(String prn, UUID subjectId, LocalDate fromDate, LocalDate toDate) {
+        Teacher teacher = getTeacherByPrn(prn);
+        validateTeacherAllocation(teacher.getTeacherId(), subjectId);
+
+        List<AttendanceSession> sessions = sessionRepo.findBySubjectSubjectIdAndIsActiveFalseAndSessionDateBetweenOrderBySessionDateAsc(
+                subjectId, fromDate, toDate);
+        
+        if (sessions.isEmpty()) return Collections.emptyList();
+        
+        List<UUID> sessionIds = sessions.stream().map(AttendanceSession::getSessionId).collect(Collectors.toList());
+        List<AttendanceRecord> bulkRecords = recordRepository.findBySessionSessionIdIn(sessionIds);
+
+        AttendanceSession firstSession = sessions.get(0);
+        List<Student> enrolledStudents;
+        if (firstSession.getSubject().getType() == SubjectType.COMPULSORY) {
+            String academicYear = firstSession.getAllocation().getAcademicYear();
+            Integer batchYear = Integer.parseInt(academicYear);
+            enrolledStudents = studentRepository.findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(
+                    firstSession.getSemester().getSemesterId(), batchYear);
+        } else {
+            enrolledStudents = enrollmentRepository.findBySubjectSubjectIdAndAcademicYear(
+                            subjectId, firstSession.getAllocation().getAcademicYear())
+                    .stream()
+                    .map(StudentSubjectEnrollment::getStudent)
+                    .collect(Collectors.toList());
+        }
+
+        int totalSessions = sessions.size();
+        List<StudentAttendanceRowResponse> response = new ArrayList<>();
+
+        for (Student student : enrolledStudents) {
+            Map<UUID, AttendanceStatus> statuses = new HashMap<>();
+            int presentCount = 0;
+
+            for (AttendanceSession s : sessions) {
+                Optional<AttendanceRecord> recOptional = bulkRecords.stream()
+                        .filter(r -> r.getSession().getSessionId().equals(s.getSessionId()) && 
+                                     r.getStudent().getStudentId().equals(student.getStudentId()))
+                        .findFirst();
+
+                if (recOptional.isPresent()) {
+                    AttendanceStatus status = recOptional.get().getStatus();
+                    statuses.put(s.getSessionId(), status);
+                    if (status == AttendanceStatus.PRESENT) presentCount++;
+                } else {
+                    statuses.put(s.getSessionId(), AttendanceStatus.ABSENT);
+                }
+            }
+
+            double percentage = totalSessions == 0 ? 0.0 : ((double) presentCount / totalSessions) * 100.0;
+            percentage = Math.round(percentage * 100.0) / 100.0;
+
+            response.add(StudentAttendanceRowResponse.builder()
+                    .studentId(student.getStudentId())
+                    .studentName(student.getFirstName() + " " + student.getLastName())
+                    .studentPrn(student.getPrn())
+                    .presentCount(presentCount)
+                    .totalSessions(totalSessions)
+                    .attendancePercentage(percentage)
+                    .isAtRisk(percentage < 75.0 && totalSessions > 0)
+                    .sessionStatuses(statuses)
+                    .build());
+        }
+
+        response.sort(Comparator.comparing(StudentAttendanceRowResponse::getStudentPrn));
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<SessionAttendanceRowResponse> getAttendanceBySession(String prn, UUID sessionId) {
+        Teacher teacher = getTeacherByPrn(prn);
+        AttendanceSession session = sessionRepo.findById(sessionId)
+                .orElseThrow(() -> new ValidationException("Session not found"));
+        
+        if (!session.getTeacher().getTeacherId().equals(teacher.getTeacherId())) {
+            throw new ValidationException("You are not authorized for this session");
+        }
+
+        List<AttendanceRecord> sessionRecords = recordRepository.findBySessionSessionId(sessionId);
+
+        List<Student> enrolledStudents;
+        if (session.getSubject().getType() == SubjectType.COMPULSORY) {
+            String academicYear = session.getAllocation().getAcademicYear();
+            Integer batchYear = Integer.parseInt(academicYear);
+            enrolledStudents = studentRepository.findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(
+                    session.getSemester().getSemesterId(), batchYear);
+        } else {
+            enrolledStudents = enrollmentRepository.findBySubjectSubjectIdAndAcademicYear(
+                            session.getSubject().getSubjectId(), session.getAllocation().getAcademicYear())
+                    .stream()
+                    .map(StudentSubjectEnrollment::getStudent)
+                    .collect(Collectors.toList());
+        }
+
+        List<SessionAttendanceRowResponse> response = new ArrayList<>();
+
+        for (Student student : enrolledStudents) {
+            Optional<AttendanceRecord> record = sessionRecords.stream()
+                    .filter(r -> r.getStudent().getStudentId().equals(student.getStudentId()))
+                    .findFirst();
+
+            AttendanceStatus status = record.map(AttendanceRecord::getStatus).orElse(AttendanceStatus.ABSENT);
+            java.time.LocalDateTime scannedAt = record.map(AttendanceRecord::getScannedAt).orElse(null);
+
+            response.add(SessionAttendanceRowResponse.builder()
+                    .studentId(student.getStudentId())
+                    .studentName(student.getFirstName() + " " + student.getLastName())
+                    .studentPrn(student.getPrn())
+                    .status(status)
+                    .scannedAt(scannedAt)
+                    .build());
+        }
+
+        response.sort(Comparator.comparing(SessionAttendanceRowResponse::getStudentPrn));
+        return response;
+    }
+
+    @Transactional(readOnly = true)
+    public List<TeacherTimetableSlotResponse> getMyTimetable(String prn) {
+        Teacher teacher = getTeacherByPrn(prn);
+        List<TeacherTimetableSlotResponse> response = new ArrayList<>();
+        
+        List<TimetableSlot> slots = slotRepo.findByAllocationTeacherTeacherIdAndEffectiveToIsNull(teacher.getTeacherId());
+        
+        for (TimetableSlot slot : slots) {
+            TeacherSubjectAllocation alloc = slot.getAllocation();
+            response.add(TeacherTimetableSlotResponse.builder()
+                    .slotId(slot.getSlotId())
+                    .dayOfWeek(slot.getDayOfWeek())
+                    .startTime(slot.getStartTime())
+                    .endTime(slot.getEndTime())
+                    .room(slot.getRoom())
+                    .subjectName(alloc.getSubject().getName())
+                    .subjectCode(alloc.getSubject().getCode())
+                    .semesterLabel(alloc.getSemester().getLabel())
+                    .build());
+        }
+
+        response.sort(Comparator.comparing(TeacherTimetableSlotResponse::getDayOfWeek)
+                .thenComparing(TeacherTimetableSlotResponse::getStartTime));
+
+        return response;
     }
 }

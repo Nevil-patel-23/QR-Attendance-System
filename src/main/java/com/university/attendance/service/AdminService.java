@@ -8,6 +8,7 @@ import com.university.attendance.models.*;
 import com.university.attendance.repository.*;
 import jakarta.persistence.EntityManager;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -22,6 +23,7 @@ import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AdminService {
@@ -40,6 +42,8 @@ public class AdminService {
     private final TeacherSubjectAllocationRepository teacherSubjectAllocationRepository;
     private final TimetableSlotRepository timetableSlotRepository;
     private final StudentSubjectEnrollmentRepository enrollmentRepository;
+    private final AttendanceSessionRepository attendanceSessionRepository;
+    private final AttendanceRecordRepository attendanceRecordRepository;
 
     // ===== FACULTY MANAGEMENT =====
 
@@ -1862,5 +1866,220 @@ public class AdminService {
                 .academicYear(enrollment.getAcademicYear())
                 .enrolledAt(enrollment.getEnrolledAt())
                 .build();
+    }
+
+    // ===== ATTENDANCE MATRIX REPORT =====
+
+    /**
+     * Build the full attendance matrix for a semester within a date range.
+     * Bulk-fetches all sessions, records, and enrollments to avoid N+1 queries.
+     */
+    @Transactional(readOnly = true)
+    public AttendanceMatrixResponse getAttendanceMatrix(UUID semesterId, LocalDate fromDate, LocalDate toDate, String academicYear) {
+        // 1. Load semester and course metadata
+        Semester semester = semesterRepository.findById(semesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found"));
+        Course course = semester.getCourse();
+
+        // batch_year in DB is stored as the full academic year integer (e.g. 202526)
+        int batchYear = Integer.parseInt(academicYear);
+
+        log.info("Attendance matrix: semesterId={}, fromDate={}, toDate={}, academicYear={}, batchYear={}, semNum={}",
+                semesterId, fromDate, toDate, academicYear, batchYear, semester.getSemesterNumber());
+
+        // 2. Split subjects into compulsory and elective, ordered by code
+        List<Subject> compulsorySubjects = subjectRepository.findBySemesterSemesterIdAndType(semesterId, SubjectType.COMPULSORY)
+                .stream().sorted(Comparator.comparing(Subject::getCode)).collect(Collectors.toList());
+        List<Subject> electiveSubjects = subjectRepository.findBySemesterSemesterIdAndType(semesterId, SubjectType.ELECTIVE)
+                .stream().sorted(Comparator.comparing(Subject::getCode)).collect(Collectors.toList());
+
+        // Headers use subject NAME not code for readability
+        List<String> compulsoryHeaders = compulsorySubjects.stream().map(Subject::getName).collect(Collectors.toList());
+        List<String> electiveHeaders = electiveSubjects.stream().map(Subject::getName).collect(Collectors.toList());
+
+        // 3. Load active students for this semester AND correct batch year, ordered by PRN
+        List<Student> students = studentRepository
+                .findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrueOrderByPrnAsc(semesterId, batchYear);
+        log.info("Batch-year filter: batchYear={}, found {} students", batchYear, students.size());
+
+        // 4. Bulk-fetch all completed sessions for the semester in the date range
+        List<AttendanceSession> allSessions = attendanceSessionRepository
+                .findBySemesterSemesterIdAndIsActiveFalseAndSessionDateBetween(semesterId, fromDate, toDate);
+
+        // Group sessions by subject ID
+        Map<UUID, List<AttendanceSession>> sessionsBySubject = allSessions.stream()
+                .collect(Collectors.groupingBy(s -> s.getSubject().getSubjectId()));
+
+        // 5. Bulk-fetch all attendance records for those sessions
+        List<UUID> allSessionIds = allSessions.stream().map(AttendanceSession::getSessionId).collect(Collectors.toList());
+        List<AttendanceRecord> allRecords = allSessionIds.isEmpty()
+                ? Collections.emptyList()
+                : attendanceRecordRepository.findBySessionSessionIdIn(allSessionIds);
+
+        // Index records by (studentId, sessionId) for O(1) lookups
+        Map<String, AttendanceStatus> recordIndex = new HashMap<>();
+        for (AttendanceRecord rec : allRecords) {
+            String key = rec.getStudent().getStudentId() + "_" + rec.getSession().getSessionId();
+            recordIndex.put(key, rec.getStatus());
+        }
+
+        // 6. Bulk-fetch all elective enrollments for the semester
+        Map<String, Boolean> electiveEnrollmentIndex = new HashMap<>();
+        for (Subject elective : electiveSubjects) {
+            List<StudentSubjectEnrollment> enrollments = enrollmentRepository
+                    .findBySubjectSubjectIdAndAcademicYear(elective.getSubjectId(), academicYear);
+            for (StudentSubjectEnrollment enrollment : enrollments) {
+                electiveEnrollmentIndex.put(
+                        enrollment.getStudent().getStudentId() + "_" + elective.getSubjectId(), true);
+            }
+        }
+
+        // 7. Build matrix rows
+        List<StudentAttendanceMatrixRow> rows = new ArrayList<>();
+        int atRiskCount = 0;
+
+        for (Student student : students) {
+            boolean studentAtRisk = false;
+
+            // Compulsory subjects
+            List<SubjectAttendanceSummary> compSummaries = new ArrayList<>();
+            for (Subject subject : compulsorySubjects) {
+                SubjectAttendanceSummary summary = buildCellSummary(
+                        student.getStudentId(), subject, sessionsBySubject, recordIndex, true);
+                compSummaries.add(summary);
+                if (summary.isAtRisk()) studentAtRisk = true;
+            }
+
+            // Elective subjects
+            List<SubjectAttendanceSummary> elecSummaries = new ArrayList<>();
+            for (Subject subject : electiveSubjects) {
+                boolean isEnrolled = electiveEnrollmentIndex.containsKey(
+                        student.getStudentId() + "_" + subject.getSubjectId());
+                SubjectAttendanceSummary summary = buildCellSummary(
+                        student.getStudentId(), subject, sessionsBySubject, recordIndex, isEnrolled);
+                elecSummaries.add(summary);
+                if (isEnrolled && summary.isAtRisk()) studentAtRisk = true;
+            }
+
+            rows.add(StudentAttendanceMatrixRow.builder()
+                    .studentId(student.getStudentId())
+                    .studentName(student.getFirstName() + " " + student.getLastName())
+                    .studentPrn(student.getPrn())
+                    .compulsorySubjects(compSummaries)
+                    .electiveSubjects(elecSummaries)
+                    .build());
+
+            if (studentAtRisk) atRiskCount++;
+        }
+
+        return AttendanceMatrixResponse.builder()
+                .semesterLabel(semester.getLabel())
+                .courseName(course.getName())
+                .courseCode(course.getCode())
+                .fromDate(fromDate)
+                .toDate(toDate)
+                .compulsorySubjectHeaders(compulsoryHeaders)
+                .electiveSubjectHeaders(electiveHeaders)
+                .rows(rows)
+                .totalStudents(students.size())
+                .atRiskCount(atRiskCount)
+                .build();
+    }
+
+    /**
+     * Build one cell of the attendance matrix: a student's attendance for a subject.
+     */
+    private SubjectAttendanceSummary buildCellSummary(
+            UUID studentId, Subject subject,
+            Map<UUID, List<AttendanceSession>> sessionsBySubject,
+            Map<String, AttendanceStatus> recordIndex,
+            boolean isEnrolled) {
+
+        if (!isEnrolled) {
+            return SubjectAttendanceSummary.builder()
+                    .subjectId(subject.getSubjectId())
+                    .subjectName(subject.getName())
+                    .subjectCode(subject.getCode())
+                    .subjectType(subject.getType())
+                    .presentCount(0)
+                    .totalSessions(0)
+                    .attendancePercentage(0.0)
+                    .isAtRisk(false)
+                    .isEnrolled(false)
+                    .build();
+        }
+
+        List<AttendanceSession> sessions = sessionsBySubject.getOrDefault(
+                subject.getSubjectId(), Collections.emptyList());
+        int totalSessions = sessions.size();
+        int presentCount = 0;
+
+        for (AttendanceSession session : sessions) {
+            String key = studentId + "_" + session.getSessionId();
+            AttendanceStatus status = recordIndex.get(key);
+            if (status == AttendanceStatus.PRESENT) {
+                presentCount++;
+            }
+        }
+
+        double percentage = 0.0;
+        if (totalSessions > 0) {
+            percentage = Math.round((double) presentCount / totalSessions * 10000.0) / 100.0;
+        }
+
+        return SubjectAttendanceSummary.builder()
+                .subjectId(subject.getSubjectId())
+                .subjectName(subject.getName())
+                .subjectCode(subject.getCode())
+                .subjectType(subject.getType())
+                .presentCount(presentCount)
+                .totalSessions(totalSessions)
+                .attendancePercentage(percentage)
+                .isAtRisk(percentage < 75.0 && totalSessions > 0)
+                .isEnrolled(true)
+                .build();
+    }
+
+    /**
+     * Calculate the academic year string from a date.
+     * June-Dec → "currentYear" + last-two-digits-of-next-year
+     * Jan-May  → "previousYear" + last-two-digits-of-current-year
+     */
+    private String calculateAcademicYear(LocalDate date) {
+        int year = date.getYear();
+        if (date.getMonthValue() >= 6) {
+            return String.valueOf(year) + String.valueOf(year + 1).substring(2);
+        } else {
+            return String.valueOf(year - 1) + String.valueOf(year).substring(2);
+        }
+    }
+
+    /**
+     * Find the current AcademicCalendar for a semester.
+     * Derives the calendar semester_number (1=odd, 2=even) from the absolute semester number,
+     * then looks up by course, current academic year, and calendar semester number.
+     * Returns null if no calendar is found.
+     */
+    @Transactional(readOnly = true)
+    public AcademicCalendarResponse findCalendarForSemester(UUID semesterId) {
+        Semester semester = semesterRepository.findById(semesterId)
+                .orElseThrow(() -> new ResourceNotFoundException("Semester not found"));
+        Course course = semester.getCourse();
+        String academicYear = calculateAcademicYear(LocalDate.now());
+        // calendar semester_number: 1 = odd semesters (1,3,5…), 2 = even semesters (2,4,6…)
+        int calSemNum = (semester.getSemesterNumber() % 2 == 0) ? 2 : 1;
+        return academicCalendarRepository
+                .findByCourseCourseIdAndAcademicYearAndSemesterNumber(course.getCourseId(), academicYear, calSemNum)
+                .map(cal -> AcademicCalendarResponse.builder()
+                        .calendarId(cal.getCalendarId())
+                        .academicYear(cal.getAcademicYear())
+                        .semesterNumber(cal.getSemesterNumber())
+                        .courseName(course.getName())
+                        .courseCode(course.getCode())
+                        .startDate(cal.getStartDate())
+                        .endDate(cal.getEndDate())
+                        .semesterLabel(semester.getLabel())
+                        .build())
+                .orElse(null);
     }
 }

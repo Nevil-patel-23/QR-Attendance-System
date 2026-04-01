@@ -6,8 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 10 complete — Student Dashboard + Security Fixes done.
-Ready for Slice 11.
+Phase: Slice 11 complete — Teacher Reports + Timetable done.
+Ready for Slice 12.
 
 ---
 
@@ -226,6 +226,17 @@ Ready for Slice 11.
 - [x] Security Fix: Cross-role access blocked via BeforeEnterObserver in Layouts.
 - [x] Security Fix: Secure logout implementation utilizing backend `/api/v1/auth/logout`.
 
+### Vertical Slice 11 — Teacher Reports + Timetable (T3, T4, T5) ✅
+- [x] 5 Response DTOs for teacher reporting (Subject, Session, Timetable).
+- [x] TeacherService and TeacherController with restricted PRN-based lookup.
+- [x] TeacherLayout with full name resolution, secure logout, and role-based `setLocation` guards.
+- [x] TeacherDashboardView with "Today's Lectures" cards and QR/Live window logic.
+- [x] AttendanceBySubjectView with DYNAMIC columns for session dates (Green P / Red A).
+- [x] AttendanceBySessionView and LiveQrView (countdown + scan counter).
+- [x] TeacherTimetableView redesigned to match Student visual style.
+- [x] Fixed `LazyInitializationException` using unproxied-entity pattern in service layer.
+- [x] Navigation: Removed all ad-hoc "Back" buttons in favor of standardized top-bar RouterLinks.
+
 ---
 
 ## In Progress 🔄
@@ -236,13 +247,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
+Slice 12 — Attendance Overview Report (A12)
 
 ---
 
 ## Not Started 📋
 
-- [ ] Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 - [ ] Slice 12 — Attendance Overview Report (A12)
 - [ ] Slice 13 — Profile Screen (S2)
 - [ ] Step 10 — Testing
@@ -280,6 +290,7 @@ Slice 11 — Teacher Reports + Timetable (T3, T4, T5)
 | 25 Mar 2026 | Slice 8 complete — Elective Enrollment Management (A9) built with strict validation rules and custom Vaadin batch year filtering. |
 | 26 Mar 2026 | Slice 9 complete — Live QR Scanner built, 5-check validation tested via mobile, routing race conditions fixed. |
 | 27 Mar 2026 | Slice 10 complete — Student Dashboard + Views. Applied 5 UI/bug fixes. Applied 2 Critical Security Patches (Cross-Role and Secure Logout). |
+| 31 Mar 2026 | Slice 11 complete — Teacher Reports + Timetable. Implemented dynamic subject reports, unproxied entity security pattern, and full UI standardization. |
 
 ---
 
@@ -358,3 +369,6 @@ One form → get-or-create allocation → create slot → effectiveFrom auto fro
 ```javascript
 UI.getCurrent().getPage().executeJs("fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/login'; })");
 ```
+
+**Rule 3 (Entity-to-UI Safety)**: Services returning data to Vaadin Views must NEVER return raw Hibernate-managed entities that contain `@ManyToOne` or `@OneToMany` lazy relationships. If relationship data is needed in the UI, it must be extracted into a DTO or a new unproxied (detached) entity instance inside the `@Transactional` service method. This prevents `LazyInitializationException` after the session closes.
+

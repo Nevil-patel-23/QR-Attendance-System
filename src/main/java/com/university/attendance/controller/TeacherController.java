@@ -12,6 +12,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.format.annotation.DateTimeFormat;
+
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,6 +32,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/teacher")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('TEACHER')")
 public class TeacherController {
 
     private final TeacherService teacherService;
@@ -62,9 +68,69 @@ public class TeacherController {
      * Extract the teacher's entity ID using the authenticated principal (PRN).
      */
     private UUID resolveTeacherId() {
-        String prn = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
         com.university.attendance.models.User user = userRepository.findByPrn(prn).orElseThrow(() -> new RuntimeException("User not found"));
         Teacher teacher = teacherService.getTeacherByUserId(user.getUserId());
         return teacher.getTeacherId();
+    }
+
+    /**
+     * Get all subjects allocated to this teacher.
+     */
+    @GetMapping("/subjects")
+    public ResponseEntity<List<com.university.attendance.dto.response.TeacherSubjectResponse>> getMySubjects() {
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(teacherService.getMySubjects(prn));
+    }
+
+    /**
+     * Get sessions for a subject, with optional date range explicitly set from UI.
+     */
+    @GetMapping("/sessions/{subjectId}")
+    public ResponseEntity<List<com.university.attendance.dto.response.SessionSummaryResponse>> getSessionsForSubject(
+            @PathVariable UUID subjectId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        
+        if (fromDate == null) fromDate = LocalDate.now().minusDays(30);
+        if (toDate == null) toDate = LocalDate.now();
+        
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(teacherService.getSessionsForSubject(prn, subjectId, fromDate, toDate));
+    }
+
+    /**
+     * Get T3 Attendance Report for a subject.
+     */
+    @GetMapping("/report/subject/{subjectId}")
+    public ResponseEntity<List<com.university.attendance.dto.response.StudentAttendanceRowResponse>> getAttendanceBySubject(
+            @PathVariable UUID subjectId,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate) {
+        
+        if (fromDate == null) fromDate = LocalDate.now().minusDays(30);
+        if (toDate == null) toDate = LocalDate.now();
+
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(teacherService.getAttendanceBySubject(prn, subjectId, fromDate, toDate));
+    }
+
+    /**
+     * Get T4 Attendance Report for a specific session.
+     */
+    @GetMapping("/report/session/{sessionId}")
+    public ResponseEntity<List<com.university.attendance.dto.response.SessionAttendanceRowResponse>> getAttendanceBySession(
+            @PathVariable UUID sessionId) {
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(teacherService.getAttendanceBySession(prn, sessionId));
+    }
+
+    /**
+     * Get T5 Weekly Timetable.
+     */
+    @GetMapping("/timetable")
+    public ResponseEntity<List<com.university.attendance.dto.response.TeacherTimetableSlotResponse>> getMyTimetable() {
+        String prn = SecurityContextHolder.getContext().getAuthentication().getName();
+        return ResponseEntity.ok(teacherService.getMyTimetable(prn));
     }
 }

@@ -29,4 +29,9 @@ public interface TeacherSubjectAllocationRepository extends JpaRepository<Teache
      */
     List<TeacherSubjectAllocation> findBySubjectSubjectIdAndAcademicYear(
             UUID subjectId, String academicYear);
+
+    /**
+     * Fetch all allocations for a specific teacher.
+     */
+    List<TeacherSubjectAllocation> findByTeacherTeacherId(UUID teacherId);
 }

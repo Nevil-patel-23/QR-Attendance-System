@@ -19,6 +19,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -342,5 +343,43 @@ public class AdminController {
     public ResponseEntity<Void> deleteEnrollment(@PathVariable UUID id) {
         adminService.deleteEnrollment(id);
         return ResponseEntity.noContent().build();
+    }
+
+    // ===== ATTENDANCE MATRIX REPORT =====
+
+    @GetMapping("/attendance/matrix")
+    public ResponseEntity<AttendanceMatrixResponse> getAttendanceMatrix(
+            @RequestParam UUID semesterId,
+            @RequestParam(required = false) LocalDate fromDate,
+            @RequestParam(required = false) LocalDate toDate) {
+        // Resolve academic year and default dates from calendar
+        AcademicCalendarResponse cal = adminService.findCalendarForSemester(semesterId);
+        String academicYear;
+        if (cal != null) {
+            academicYear = cal.getAcademicYear();
+            if (fromDate == null) fromDate = cal.getStartDate();
+            if (toDate == null) toDate = cal.getEndDate();
+        } else {
+            // Fallback: derive from current date
+            int year = LocalDate.now().getYear();
+            int month = LocalDate.now().getMonthValue();
+            if (month >= 6) {
+                academicYear = String.valueOf(year) + String.valueOf(year + 1).substring(2);
+            } else {
+                academicYear = String.valueOf(year - 1) + String.valueOf(year).substring(2);
+            }
+            if (fromDate == null) fromDate = LocalDate.now().minusDays(30);
+            if (toDate == null) toDate = LocalDate.now();
+        }
+        return ResponseEntity.ok(adminService.getAttendanceMatrix(semesterId, fromDate, toDate, academicYear));
+    }
+
+    @GetMapping("/attendance/calendar")
+    public ResponseEntity<AcademicCalendarResponse> getCalendarForSemester(@RequestParam UUID semesterId) {
+        AcademicCalendarResponse cal = adminService.findCalendarForSemester(semesterId);
+        if (cal == null) {
+            return ResponseEntity.noContent().build();
+        }
+        return ResponseEntity.ok(cal);
     }
 }

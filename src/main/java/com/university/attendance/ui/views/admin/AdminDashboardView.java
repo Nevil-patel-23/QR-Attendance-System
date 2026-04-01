@@ -32,6 +32,8 @@ public class AdminDashboardView extends VerticalLayout {
         statCards.add(createStatCard("Total Teachers", String.valueOf(adminService.getAllTeachers().size())));
 
         HorizontalLayout navigation = new HorizontalLayout();
+        navigation.setWidthFull();
+        navigation.getStyle().set("flex-wrap", "wrap").set("gap", "8px");
         
         Button facultiesBtn = new Button("Manage Faculties", e -> UI.getCurrent().navigate(FacultyManagementView.class));
         facultiesBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
@@ -60,7 +62,15 @@ public class AdminDashboardView extends VerticalLayout {
         Button enrollmentBtn = new Button("Elective Enrollment", e -> UI.getCurrent().navigate(ElectiveEnrollmentView.class));
         enrollmentBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
 
-        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn, calendarBtn, holidaysBtn, timetableBtn, enrollmentBtn);
+        Button attendanceBtn = new Button("Attendance Overview", e -> UI.getCurrent().navigate(AttendanceOverviewView.class));
+        attendanceBtn.addThemeVariants(ButtonVariant.LUMO_PRIMARY);
+
+        for (Button btn : new Button[]{facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn,
+                calendarBtn, holidaysBtn, timetableBtn, enrollmentBtn, attendanceBtn}) {
+            btn.setMinWidth("160px");
+        }
+
+        navigation.add(facultiesBtn, coursesBtn, subjectsBtn, studentsBtn, teachersBtn, calendarBtn, holidaysBtn, timetableBtn, enrollmentBtn, attendanceBtn);
 
         add(title, statCards, navigation);
     }

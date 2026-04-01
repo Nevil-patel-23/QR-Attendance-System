@@ -16,4 +16,5 @@ public interface StudentRepository extends JpaRepository<Student, UUID> {
     Optional<Student> findByPrn(String prn);
     List<Student> findByCurrentSemesterSemesterIdAndUserIsActiveTrue(UUID semesterId);
     List<Student> findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(UUID semesterId, Integer batchYear);
+    List<Student> findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrueOrderByPrnAsc(UUID semesterId, Integer batchYear);
 }

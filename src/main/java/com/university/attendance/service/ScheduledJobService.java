@@ -119,8 +119,10 @@ public class ScheduledJobService {
         Semester semester = session.getSemester();
 
         if (subject.getType() == SubjectType.COMPULSORY) {
-            return studentRepo.findByCurrentSemesterSemesterIdAndUserIsActiveTrue(
-                    semester.getSemesterId());
+            String academicYear = session.getAllocation().getAcademicYear();
+            Integer batchYear = Integer.parseInt(academicYear);
+            return studentRepo.findByCurrentSemesterSemesterIdAndBatchYearAndUserIsActiveTrue(
+                    semester.getSemesterId(), batchYear);
         } else {
             return enrollmentRepo.findBySubjectSubjectIdAndAcademicYear(
                             subject.getSubjectId(), session.getAllocation().getAcademicYear())

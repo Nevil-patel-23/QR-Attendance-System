@@ -33,14 +33,27 @@ public class StudentLayout extends AppLayout implements BeforeEnterObserver {
     public void beforeEnter(BeforeEnterEvent event) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated() || auth.getAuthorities().isEmpty()) {
-            event.forwardTo("");  // → LoginView
+            event.getUI().getPage().setLocation("/");
             return;
         }
         boolean isStudent = auth.getAuthorities().stream()
                 .map(GrantedAuthority::getAuthority)
                 .anyMatch(role -> "ROLE_STUDENT".equals(role));
         if (!isStudent) {
-            event.forwardTo("admin");
+            boolean isAdmin = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .anyMatch(role -> "ROLE_ADMIN".equals(role));
+            boolean isTeacher = auth.getAuthorities().stream()
+                    .map(GrantedAuthority::getAuthority)
+                    .anyMatch(role -> "ROLE_TEACHER".equals(role));
+
+            if (isAdmin) {
+                event.getUI().getPage().setLocation("/admin");
+            } else if (isTeacher) {
+                event.getUI().getPage().setLocation("/teacher");
+            } else {
+                event.getUI().getPage().setLocation("/");
+            }
         }
     }
 

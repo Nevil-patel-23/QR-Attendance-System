@@ -97,7 +97,7 @@ public class StudentService {
         Student student = findStudentByPrn(prn);
 
         List<AttendanceRecord> records = recordRepository
-                .findByStudentStudentIdAndSessionSubjectSubjectId(
+                .findByStudentStudentIdAndSessionSubjectSubjectIdAndSessionIsActiveFalse(
                         student.getStudentId(), subjectId);
 
         return records.stream()
@@ -253,6 +253,7 @@ public class StudentService {
                     .findByStudentStudentIdAndSessionSubjectSubjectId(studentId, subject.getSubjectId());
             presentCount = (int) records.stream()
                     .filter(r -> r.getStatus() == AttendanceStatus.PRESENT)
+                    .filter(r -> Boolean.FALSE.equals(r.getSession().getIsActive()))
                     .filter(r -> {
                         LocalDate d = r.getSession().getSessionDate();
                         return !d.isBefore(calStart) && !d.isAfter(calEnd);

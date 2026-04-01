@@ -10,8 +10,11 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.H1;
+import com.vaadin.flow.component.html.H2;
 import com.vaadin.flow.component.html.H3;
 import com.vaadin.flow.component.html.Paragraph;
+import com.vaadin.flow.component.html.Span;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.Icon;
 import com.vaadin.flow.component.icon.VaadinIcon;
@@ -22,6 +25,7 @@ import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.QueryParameters;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.VaadinRequest;
+import jakarta.annotation.security.RolesAllowed;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -42,8 +46,9 @@ import java.util.UUID;
  *
  * Replaces the placeholder "Teacher Dashboard — coming soon" view.
  */
-@Route("teacher")
-@PageTitle("Teacher Dashboard | QR Attendance")
+@Route(value = "teacher", layout = TeacherLayout.class)
+@PageTitle("My Dashboard")
+@RolesAllowed("TEACHER")
 public class TeacherDashboardView extends VerticalLayout {
 
     private static final DateTimeFormatter TIME_FORMAT = DateTimeFormatter.ofPattern("hh:mm a");
@@ -69,14 +74,33 @@ public class TeacherDashboardView extends VerticalLayout {
         setPadding(true);
         setSpacing(true);
 
-        // Header
-        H1 title = new H1("Today's Lectures");
-        title.getStyle().set("margin-top", "0");
-        add(title);
-
-        // Load teacher and slots
         try {
-            UUID teacherId = resolveTeacherId();
+            Teacher teacher = resolveTeacher();
+            UUID teacherId = teacher.getTeacherId();
+
+            // ── Profile strip ──
+            H2 greeting = new H2("Welcome, " + teacher.getFirstName() + " " + teacher.getLastName());
+            greeting.getStyle().set("margin-bottom", "0");
+            greeting.getStyle().set("margin-top", "0");
+
+            HorizontalLayout profileRow = new HorizontalLayout();
+            profileRow.setSpacing(true);
+            profileRow.add(createBadge("PRN: " + teacher.getPrn()));
+            
+            if (teacher.getFaculty() != null) {
+                profileRow.add(createBadge(teacher.getFaculty().getName()));
+            }
+            if (teacher.getDesignation() != null) {
+                profileRow.add(createBadge(teacher.getDesignation()));
+            }
+
+            add(greeting, profileRow);
+
+            // Header
+            H3 title = new H3("Today's Lectures");
+            title.getStyle().set("margin-top", "var(--lumo-space-l)");
+            add(title);
+
             List<TodaySlotResponse> slots = teacherService.getTodaySlots(teacherId);
 
             if (slots.isEmpty()) {
@@ -143,8 +167,8 @@ public class TeacherDashboardView extends VerticalLayout {
             // Then we navigate to LiveQrView using sessionId instead of slotId.
             Button generateButton = new Button("Generate QR", new Icon(VaadinIcon.QRCODE), e -> {
                 try {
-                    UUID teacherId = resolveTeacherId();
-                    AttendanceSessionResponse generatedSession = qrService.generateSession(slot.getSlotId(), teacherId);
+                    Teacher teacher = resolveTeacher();
+                    AttendanceSessionResponse generatedSession = qrService.generateSession(slot.getSlotId(), teacher.getTeacherId());
                     QueryParameters qp = new QueryParameters(Map.of("sessionId", List.of(generatedSession.getSessionId().toString())));
                     UI.getCurrent().navigate("teacher/live-qr", qp);
                 } catch (Exception ex) {
@@ -165,21 +189,30 @@ public class TeacherDashboardView extends VerticalLayout {
     }
 
     /**
-     * Resolve teacher ID from the JWT cookie.
+     * Resolve teacher from the JWT cookie.
      */
-    private UUID resolveTeacherId() {
+    private Teacher resolveTeacher() {
         HttpServletRequest httpRequest = (HttpServletRequest) VaadinRequest.getCurrent();
         Cookie[] cookies = httpRequest.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if ("jwt".equals(cookie.getName())) {
                     UUID userId = jwtUtil.extractUserId(cookie.getValue());
-                    Teacher teacher = teacherService.getTeacherByUserId(userId);
-                    return teacher.getTeacherId();
+                    return teacherService.getTeacherByUserId(userId);
                 }
             }
         }
         throw new RuntimeException("Not authenticated");
+    }
+
+    private Span createBadge(String text) {
+        Span badge = new Span(text);
+        badge.getStyle()
+                .set("background-color", "var(--lumo-contrast-10pct)")
+                .set("border-radius", "var(--lumo-border-radius-s)")
+                .set("padding", "var(--lumo-space-xs) var(--lumo-space-s)")
+                .set("font-size", "var(--lumo-font-size-s)");
+        return badge;
     }
 
     /**

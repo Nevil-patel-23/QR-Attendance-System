@@ -33,4 +33,18 @@ public interface AttendanceRecordRepository extends JpaRepository<AttendanceReco
      */
     List<AttendanceRecord> findByStudentStudentIdAndSessionSubjectSubjectId(
             UUID studentId, UUID subjectId);
+
+    /**
+     * Get a student's attendance records for a specific subject, but only for inactive sessions.
+     * Prevents active lectures from showing up in details before they end.
+     */
+    List<AttendanceRecord> findByStudentStudentIdAndSessionSubjectSubjectIdAndSessionIsActiveFalse(
+            UUID studentId, UUID subjectId);
+
+
+    /**
+     * Get attendance records for multiple sessions in bulk.
+     * Used for teacher report generation to prevent N+1 queries.
+     */
+    List<AttendanceRecord> findBySessionSessionIdIn(List<UUID> sessionIds);
 }

@@ -56,6 +56,12 @@ public class AttendanceService {
             throw new ValidationException("You are not in this class");
         }
 
+        // Ensure the student's batch year matches the session's computed academic year
+        Integer sessionBatchYear = Integer.parseInt(session.getAllocation().getAcademicYear());
+        if (!student.getBatchYear().equals(sessionBatchYear)) {
+            throw new ValidationException("You belong to a different academic batch");
+        }
+
         // ── Check 3: Subject eligibility ──
         Subject subject = session.getSubject();
         if (subject.getType() == SubjectType.ELECTIVE) {
