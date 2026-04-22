@@ -6,8 +6,8 @@
 
 ## Current Status
 
-Phase: Slice 12 complete — Admin Attendance Overview Report done.
-Ready for Slice 13.
+Phase: Slice 13 complete — Profile & Password Management done.
+Ready for Step 10 — Testing.
 
 ---
 
@@ -252,6 +252,20 @@ Ready for Slice 13.
 - [x] Empty-state handling: shows "No students found for Batch [Year] in this Semester" notification; grid and export hidden.
 - [x] AdminDashboardView — Attendance Overview navigation button added.
 
+### Global UI Polish (Pre-Slice 13) ✅
+- [x] Replaced plain text name and logout buttons with a unified, professional Vaadin Avatar ContextMenu in all three layouts (AdminLayout, TeacherLayout, StudentLayout).
+- [x] Avatar displays dynamic initials and role-based background colors (Admin=Blue, Teacher=Green, Student=Purple).
+- [x] Configured role-specific routing links (/admin/profile, /teacher/profile, /student/profile) in the dropdown to strictly enforce Rule 1 (Cross-Role Security).
+- [x] Maintained Rule 2 (Secure Logout) via JavaScript fetch execution within the new ContextMenu.
+
+### Vertical Slice 13 — Profile & Password Management (S2) ✅
+- [x] Implemented unified Profile and Password Management for all three roles.
+- [x] Created UserProfileResponse and PasswordChangeRequest DTOs to enforce Rule 3 (Entity-to-UI Safety).
+- [x] Implemented ProfileService to fetch nested user data (Student/Course/Semester or Teacher/Faculty) and process password updates via BCryptPasswordEncoder.
+- [x] Built 6 role-specific views (AdminProfileView, AdminPasswordView, TeacherProfileView, etc.) mapped to their respective Layout classes to strictly enforce Rule 1 (Cross-Role Security).
+- [x] Security: Profile identity and password changes rely exclusively on the SecurityContextHolder (JWT), preventing PRN tampering via URL or request bodies.
+- [x] Validated old password hashing and new password confirmation logic.
+
 ---
 
 ## In Progress 🔄
@@ -262,13 +276,12 @@ Nothing in progress — session ended
 
 ## Next Up ⏭️
 
-Slice 13 — Profile Screen (S2)
+Step 10 — Testing
 
 ---
 
 ## Not Started 📋
 
-- [ ] Slice 13 — Profile Screen (S2)
 - [ ] Step 10 — Testing
 
 ---
@@ -306,6 +319,8 @@ Slice 13 — Profile Screen (S2)
 | 27 Mar 2026 | Slice 10 complete — Student Dashboard + Views. Applied 5 UI/bug fixes. Applied 2 Critical Security Patches (Cross-Role and Secure Logout). |
 | 31 Mar 2026 | Slice 11 complete — Teacher Reports + Timetable. Implemented dynamic subject reports, unproxied entity security pattern, and full UI standardization. |
 | 01 Apr 2026 | Slice 12 complete — Admin Attendance Overview Report. Matrix grid with dynamic subject columns, Excel export with colored fills, cascading dropdowns with calendar-synced date pickers. Fixed critical batch_year filtering bug (DB stores 202526, not 2025). |
+| 21 Apr 2026 | Applied Global UI Polish — implemented unified Avatar ContextMenu across all layouts and established secure, role-specific routing paths. |
+| 21 Apr 2026 | Slice 13 complete — Profile & Password Management. Implemented secure role-specific views, JWT-based identity verification, and BCrypt password updates. |
 
 ---
 
@@ -380,11 +395,11 @@ One form → get-or-create allocation → create slot → effectiveFrom auto fro
 
 ## Strict Architectural Rules for Future Slices
 
-**Rule 1 (Cross-Role Security)**: Whenever a new Layout file is created (e.g., TeacherLayout.java in Slice 11), it MUST implement `BeforeEnterObserver`. It must check the `SecurityContextHolder` and strictly enforce its specific role (e.g., `ROLE_TEACHER`). Unauthorized roles must be forwarded to `/admin` or `/student` respectively, or `/login` if unauthenticated.
+**Rule 1 (Cross-Role Security)**: Whenever a new Layout file is created (e.g., TeacherLayout.java in Slice 11), it MUST implement `BeforeEnterObserver`. It must check the `SecurityContextHolder` and strictly enforce its specific role (e.g., `ROLE_TEACHER`). Unauthorized roles must be forwarded to `/admin` or `/student` respectively, or `/` if unauthenticated. (Note: The login page is always the root `/`, never `/login`).
 
 **Rule 2 (Secure Logout)**: Whenever a logout button is implemented in a Vaadin UI layout, it MUST NOT use standard Vaadin navigation. It must explicitly execute this JavaScript to clear the HTTP-only cookie before redirecting:
 ```javascript
-UI.getCurrent().getPage().executeJs("fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/login'; })");
+UI.getCurrent().getPage().executeJs("fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/'; })");
 ```
 
 **Rule 3 (Entity-to-UI Safety)**: Services returning data to Vaadin Views must NEVER return raw Hibernate-managed entities that contain `@ManyToOne` or `@OneToMany` lazy relationships. If relationship data is needed in the UI, it must be extracted into a DTO or a new unproxied (detached) entity instance inside the `@Transactional` service method. This prevents `LazyInitializationException` after the session closes.

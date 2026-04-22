@@ -83,22 +83,64 @@ public class StudentLayout extends AppLayout implements BeforeEnterObserver {
 
         // Student full name from SecurityContextHolder PRN → DB lookup
         String studentName = resolveStudentFullName(studentRepository);
-        Span nameSpan = new Span(studentName);
-        nameSpan.getStyle().set("color", "var(--lumo-secondary-text-color)")
-                .set("font-size", "var(--lumo-font-size-s)");
+        String prn = "";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            prn = auth.getName();
+        }
 
-        // Logout — calls backend to clear HttpOnly cookie, then redirects
-        Button logoutBtn = new Button("Logout", e -> {
+        String initials = "";
+        String[] parts = studentName.split(" ");
+        if (parts.length > 0 && !parts[0].isEmpty()) initials += parts[0].substring(0, 1).toUpperCase();
+        if (parts.length > 1 && !parts[1].isEmpty()) initials += parts[1].substring(0, 1).toUpperCase();
+        if (initials.isEmpty()) initials = "S";
+
+        com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(studentName);
+        avatar.setAbbreviation(initials);
+        avatar.getStyle().set("background-color", "#9c27b0"); // Purple
+        avatar.getStyle().set("color", "white");
+        avatar.getStyle().set("cursor", "pointer");
+
+        com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(avatar);
+        contextMenu.setOpenOnClick(true);
+
+        com.vaadin.flow.component.avatar.Avatar largeAvatar = new com.vaadin.flow.component.avatar.Avatar(studentName);
+        largeAvatar.setAbbreviation(initials);
+        largeAvatar.getStyle()
+            .set("background-color", "#3164d1ff") // Purple
+            .set("color", "white")
+            .set("width", "var(--lumo-size-xl)")
+            .set("height", "var(--lumo-size-xl)");
+
+        Span nameLabel = new Span(studentName);
+        nameLabel.getStyle().set("font-weight", "bold");
+        Span prnLabel = new Span(prn.isEmpty() ? "N/A" : prn);
+        prnLabel.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "var(--lumo-font-size-s)");
+
+        com.vaadin.flow.component.orderedlayout.VerticalLayout headerLayout = new com.vaadin.flow.component.orderedlayout.VerticalLayout(largeAvatar, nameLabel, prnLabel);
+        headerLayout.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+        headerLayout.setSpacing(false);
+        headerLayout.getStyle().set("padding", "var(--lumo-space-m)");
+
+        contextMenu.add(headerLayout);
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+
+        contextMenu.addItem("My Profile", e -> UI.getCurrent().navigate("student/profile"));
+        contextMenu.addItem("Change Password", e -> UI.getCurrent().navigate("student/profile/password"));
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+
+        Span logoutSpan = new Span("Logout");
+        logoutSpan.getStyle().set("color", "var(--lumo-error-text-color)").set("font-weight", "bold");
+        contextMenu.addItem(logoutSpan, e -> {
             UI.getCurrent().getPage().executeJs(
                     "fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/'; })");
         });
-        logoutBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
 
         Span divider = new Span("|");
         divider.getStyle().set("color", "var(--lumo-contrast-30pct)");
 
         HorizontalLayout right = new HorizontalLayout(
-                dashLink, attendLink, ttLink, subLink, divider, nameSpan, logoutBtn);
+                dashLink, attendLink, ttLink, subLink, divider, avatar);
         right.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         right.setSpacing(true);
 

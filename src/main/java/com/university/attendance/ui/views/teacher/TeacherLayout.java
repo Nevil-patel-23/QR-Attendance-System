@@ -58,32 +58,70 @@ public class TeacherLayout extends AppLayout implements BeforeEnterObserver {
         navSessionReport.getStyle().set("text-decoration", "none").set("color", "var(--lumo-body-text-color)");
 
         String teacherName = "Teacher";
+        String prn = "";
         try {
             Authentication auth = SecurityContextHolder.getContext().getAuthentication();
             if (auth != null && auth.getName() != null) {
-                String prn = auth.getName();
+                prn = auth.getName();
                 teacherName = teacherRepository.findByPrn(prn)
                         .map(u -> u.getFirstName() + " " + u.getLastName())
                         .orElse("Teacher");
             }
         } catch (Exception ignored) {
         }
-        Span nameSpan = new Span(teacherName);
-        nameSpan.getStyle().set("color", "var(--lumo-secondary-text-color)")
-                .set("font-size", "var(--lumo-font-size-s)");
 
-        Button logoutBtn = new Button("Logout", e -> {
+        String initials = "";
+        String[] parts = teacherName.split(" ");
+        if (parts.length > 0 && !parts[0].isEmpty()) initials += parts[0].substring(0, 1).toUpperCase();
+        if (parts.length > 1 && !parts[1].isEmpty()) initials += parts[1].substring(0, 1).toUpperCase();
+        if (initials.isEmpty()) initials = "T";
+
+        com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(teacherName);
+        avatar.setAbbreviation(initials);
+        avatar.getStyle().set("background-color", "var(--lumo-success-color)"); // Green
+        avatar.getStyle().set("color", "white");
+        avatar.getStyle().set("cursor", "pointer");
+
+        com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(avatar);
+        contextMenu.setOpenOnClick(true);
+
+        com.vaadin.flow.component.avatar.Avatar largeAvatar = new com.vaadin.flow.component.avatar.Avatar(teacherName);
+        largeAvatar.setAbbreviation(initials);
+        largeAvatar.getStyle()
+            .set("background-color", "var(--lumo-success-color)")
+            .set("color", "white")
+            .set("width", "var(--lumo-size-xl)")
+            .set("height", "var(--lumo-size-xl)");
+
+        Span nameLabel = new Span(teacherName);
+        nameLabel.getStyle().set("font-weight", "bold");
+        Span prnLabel = new Span(prn.isEmpty() ? "N/A" : prn);
+        prnLabel.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "var(--lumo-font-size-s)");
+
+        com.vaadin.flow.component.orderedlayout.VerticalLayout headerLayout = new com.vaadin.flow.component.orderedlayout.VerticalLayout(largeAvatar, nameLabel, prnLabel);
+        headerLayout.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+        headerLayout.setSpacing(false);
+        headerLayout.getStyle().set("padding", "var(--lumo-space-m)");
+
+        contextMenu.add(headerLayout);
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+
+        contextMenu.addItem("My Profile", e -> UI.getCurrent().navigate("teacher/profile"));
+        contextMenu.addItem("Change Password", e -> UI.getCurrent().navigate("teacher/profile/password"));
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+
+        Span logoutSpan = new Span("Logout");
+        logoutSpan.getStyle().set("color", "var(--lumo-error-text-color)").set("font-weight", "bold");
+        contextMenu.addItem(logoutSpan, e -> {
             UI.getCurrent().getPage().executeJs(
-                "fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/'; })"
-            );
+                    "fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/'; })");
         });
-        logoutBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
 
         Span divider = new Span("|");
         divider.getStyle().set("color", "var(--lumo-contrast-30pct)");
 
         HorizontalLayout right = new HorizontalLayout(
-                navDashboard, navTimetable, navSubjectReport, navSessionReport, divider, nameSpan, logoutBtn);
+                navDashboard, navTimetable, navSubjectReport, navSessionReport, divider, avatar);
         right.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         right.setSpacing(true);
 

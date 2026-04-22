@@ -152,6 +152,38 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
         throw new RuntimeException("Not authenticated");
     }
 
+
+
+    /**
+     * Dynamically build the base URL of this server using the current HTTP request.
+     *
+     * Why: The QR code must encode a URL that students' phones can reach.
+     *      If we hardcode "localhost", the phone cannot connect — it needs the
+     *      teacher's laptop's real LAN IP (e.g. http://172.24.11.99:8080).
+     *
+     * How: The incoming HTTP request already knows which host the browser used
+     *      to connect (request.getServerName() = "172.24.11.99").
+     *      We reconstruct the full base URL from that — so it's 100% dynamic.
+     *      If the teacher's IP changes, the next QR generation picks up the new IP automatically.
+     */
+    private String buildAttendanceUrl() {
+        HttpServletRequest httpRequest = (HttpServletRequest) VaadinRequest.getCurrent();
+        String scheme = httpRequest.getScheme();           // "http" or "https"
+        String serverName = httpRequest.getServerName();  // e.g. "172.24.11.99" or "localhost"
+        int port = httpRequest.getServerPort();           // e.g. 8080
+
+        // Only append port if it's non-standard (skip :80 for http, :443 for https)
+        boolean isDefaultPort = (scheme.equals("http") && port == 80)
+                             || (scheme.equals("https") && port == 443);
+
+        if (isDefaultPort) {
+            return scheme + "://" + serverName;
+        } else {
+            return scheme + "://" + serverName + ":" + port;
+        }
+    }
+
+
     /**
      * Build the full QR display UI.
      */
@@ -167,7 +199,7 @@ public class LiveQrView extends VerticalLayout implements HasUrlParameter<String
 
         // QR code image
         try {
-            String qrUrl = "http://localhost:8080/attend?token=" + session.getQrToken();
+            String qrUrl = buildAttendanceUrl() + "/attend?token=" + session.getQrToken();
             byte[] qrBytes = generateQrCode(qrUrl, 350);
 
             StreamResource resource = new StreamResource("qr.png",

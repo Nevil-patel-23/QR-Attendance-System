@@ -71,18 +71,56 @@ public class AdminLayout extends AppLayout implements BeforeEnterObserver {
         HorizontalLayout left = new HorizontalLayout(adminLink, separator, viewTitle);
         left.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
 
-        // ── Right side: Admin label + Logout ──
-        Span adminLabel = new Span("Admin");
-        adminLabel.getStyle().set("color", "var(--lumo-secondary-text-color)")
-                .set("font-size", "var(--lumo-font-size-s)");
-
-        Button logoutBtn = new Button("Logout", e -> {
+        // ── Right side: Profile Menu ──
+        String adminName = "Admin User";
+        String prn = "";
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getName() != null) {
+            prn = auth.getName();
+        }
+        
+        com.vaadin.flow.component.avatar.Avatar avatar = new com.vaadin.flow.component.avatar.Avatar(adminName);
+        avatar.setAbbreviation("AD");
+        avatar.getStyle().set("background-color", "var(--lumo-primary-color)"); // Blue
+        avatar.getStyle().set("color", "white");
+        avatar.getStyle().set("cursor", "pointer");
+        
+        com.vaadin.flow.component.contextmenu.ContextMenu contextMenu = new com.vaadin.flow.component.contextmenu.ContextMenu(avatar);
+        contextMenu.setOpenOnClick(true);
+        
+        com.vaadin.flow.component.avatar.Avatar largeAvatar = new com.vaadin.flow.component.avatar.Avatar(adminName);
+        largeAvatar.setAbbreviation("AD");
+        largeAvatar.getStyle()
+            .set("background-color", "var(--lumo-primary-color)")
+            .set("color", "white")
+            .set("width", "var(--lumo-size-xl)")
+            .set("height", "var(--lumo-size-xl)");
+        
+        Span nameLabel = new Span(adminName);
+        nameLabel.getStyle().set("font-weight", "bold");
+        Span prnLabel = new Span(prn.isEmpty() ? "N/A" : prn);
+        prnLabel.getStyle().set("color", "var(--lumo-secondary-text-color)").set("font-size", "var(--lumo-font-size-s)");
+        
+        com.vaadin.flow.component.orderedlayout.VerticalLayout headerLayout = new com.vaadin.flow.component.orderedlayout.VerticalLayout(largeAvatar, nameLabel, prnLabel);
+        headerLayout.setDefaultHorizontalComponentAlignment(FlexComponent.Alignment.CENTER);
+        headerLayout.setSpacing(false);
+        headerLayout.getStyle().set("padding", "var(--lumo-space-m)");
+        
+        contextMenu.add(headerLayout);
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+        
+        contextMenu.addItem("My Profile", e -> UI.getCurrent().navigate("admin/profile"));
+        contextMenu.addItem("Change Password", e -> UI.getCurrent().navigate("admin/profile/password"));
+        contextMenu.add(new com.vaadin.flow.component.html.Hr());
+        
+        Span logoutSpan = new Span("Logout");
+        logoutSpan.getStyle().set("color", "var(--lumo-error-text-color)").set("font-weight", "bold");
+        contextMenu.addItem(logoutSpan, e -> {
             UI.getCurrent().getPage().executeJs(
                     "fetch('/api/v1/auth/logout', {method:'POST'}).then(() => { window.location.href='/'; })");
         });
-        logoutBtn.addThemeVariants(ButtonVariant.LUMO_SMALL, ButtonVariant.LUMO_TERTIARY);
 
-        HorizontalLayout right = new HorizontalLayout(adminLabel, logoutBtn);
+        HorizontalLayout right = new HorizontalLayout(avatar);
         right.setDefaultVerticalComponentAlignment(FlexComponent.Alignment.CENTER);
         right.setSpacing(true);
 
